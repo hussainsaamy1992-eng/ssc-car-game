@@ -21,12 +21,16 @@
     #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3);}
     
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
-    #start-btn { display: none; margin-top: 20px; padding: 12px 40px; font-size: 22px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; }
+    #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
     #pause-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 9999; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
   </style>
 </head>
 <body>
+
+  <!-- THE STRONGEST AUDIO FIX: Hardcoded Native HTML5 Audio Elements -->
+  <audio id="audio-engine" src="https://hussainsaamy.github.io/game-assets/sound.mp3" loop preload="auto" crossorigin="anonymous"></audio>
+  <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
   <div id="loading-screen">
     <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building Island...</span>
@@ -50,9 +54,9 @@
     let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
     
-    // Global Audio Variables
-    let engineAudio = null;
-    let bullAudio = null;
+    // Audio Variables linked directly to the HTML tags
+    let engineAudio = document.getElementById('audio-engine');
+    let bullAudio = document.getElementById('audio-bull');
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
@@ -149,20 +153,19 @@
         document.getElementById('ui-container').style.display = 'flex';
         document.getElementById('pause-btn').style.display = 'block'; 
         
-        // --- AUDIO FIX: Loaded explicitly inside the user click event ---
-        if (!engineAudio) {
-            engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3');
-            engineAudio.loop = true;
-            engineAudio.volume = 1.0;
-        }
-        if (!bullAudio) {
-            bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3');
-            bullAudio.loop = true;
-            bullAudio.volume = 0.0;
+        // --- BULLETPROOF AUDIO TRIGGER ---
+        engineAudio.volume = 1.0;
+        bullAudio.volume = 0.0;
+        
+        let playPromise1 = engineAudio.play();
+        if (playPromise1 !== undefined) {
+            playPromise1.catch(e => console.log("Engine Audio Blocked:", e));
         }
 
-        engineAudio.play().catch(e => console.log(e));
-        bullAudio.play().catch(e => console.log(e));
+        let playPromise2 = bullAudio.play();
+        if (playPromise2 !== undefined) {
+            playPromise2.catch(e => console.log("Bull Audio Blocked:", e));
+        }
 
         gameStarted = true;
         loadQuestionUI();
@@ -177,15 +180,15 @@
             btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
             
-            if (engineAudio) engineAudio.pause();
-            if (bullAudio) bullAudio.pause();
+            engineAudio.pause();
+            bullAudio.pause();
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
             
-            if (engineAudio) engineAudio.play();
-            if (bullAudio) bullAudio.play();
+            engineAudio.play();
+            bullAudio.play();
         }
     }
 
@@ -273,15 +276,13 @@
             for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
             if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
 
-            // Audio Logic updates based on distance to bulls
-            if(bullAudio) { 
-                let mD = 1000; 
-                bullsArray.forEach(b => { 
-                    let d = carGroup.position.distanceTo(b.mesh.position); 
-                    if(d < mD) mD = d; 
-                }); 
-                bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
-            }
+            // Audio fading based on Bull distance
+            let mD = 1000; 
+            bullsArray.forEach(b => { 
+                let d = carGroup.position.distanceTo(b.mesh.position); 
+                if(d < mD) mD = d; 
+            }); 
+            bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
             const cy = carGroup.rotation.y;
             const mPitch = 0.3; 
