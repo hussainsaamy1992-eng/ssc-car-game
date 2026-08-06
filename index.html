@@ -3,244 +3,247 @@
 <head>
   <title>3D Island Drive - SSC Islam</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <!-- Load 3D Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #87CEEB; touch-action: none; font-family: Arial, sans-serif; }
     canvas { display: block; width: 100vw; height: 100vh; }
-    
     #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 10; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
     #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 20px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3);}
-    
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; font-size: 24px; text-align: center; padding: 20px; }
+    #start-btn { display: none; margin-top: 20px; padding: 10px 30px; font-size: 20px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer; }
   </style>
 </head>
 <body>
 
-  <!-- Loading Screen -->
   <div id="loading-screen">
-    Loading 3D World & Questions...
-    <br>
-    <span style="font-size: 16px; margin-top: 15px; color: #aaa;">Please wait</span>
+    <span id="load-text">Loading 4D Island Assets...</span>
+    <button id="start-btn" onclick="startGameEngine()">START ENGINE</button>
   </div>
 
-  <!-- Game UI Overlay -->
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
     <div id="question-box">Loading...</div>
   </div>
 
   <script>
-    // ==========================================
-    // API CONNECTION
-    // ==========================================
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
-    // --- Game Variables ---
+    // Game Variables
     let gameData = [];
     let currentIsland = 0;
     let currentQuestion = 0;
+    let gameStarted = false;
+    let MAP_SIZE = 400;
     
-    // --- 3D Engine Setup ---
+    // 3D Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // Sky blue
-    
+    scene.background = new THREE.Color(0x87CEEB); 
+    const clock = new THREE.Clock();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.0); 
-    sun.position.set(100, 200, 100); 
-    scene.add(sun);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
 
-    // --- Load Models ---
-    const carGroup = new THREE.Group(); 
-    scene.add(carGroup);
-    const signboardsArray = [];
+    // Arrays & Loaders
+    const carGroup = new THREE.Group(); scene.add(carGroup);
+    const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
     const gltfLoader = new THREE.GLTFLoader();
+    
+    // Audio
+    let engineAudio, bullAudio;
 
-    async function initGame() {
+    function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
+
+    async function initAssets() {
         try {
-            // 1. Fetch questions from your exact Google Sheet URL
+            // 1. Fetch Questions
             const res = await fetch(`${API_URL}?action=getGameData`);
             const data = await res.json();
-            
-            if (data.success && data.islands.length > 0) {
-                gameData = data.islands;
-            } else {
-                document.getElementById('loading-screen').innerHTML = "Error: No questions found in Sheet1.";
-                return;
+            if (data.success) gameData = data.islands;
+
+            // 2. Load Grass
+            const tex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(50, 50);
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({map: tex}));
+            ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+            // 3. Download all old assets simultaneously
+            const [carG, t1, f1, bullG, fenceG] = await Promise.all([
+                loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb')
+            ]);
+
+            // Setup Car
+            if(carG) {
+                const myCar = carG.scene;
+                myCar.scale.set(4, 4, 4); myCar.rotation.y = Math.PI;
+                carGroup.add(myCar);
             }
 
-            // 2. Load Grass Floor
-            const tex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping; 
-            tex.repeat.set(50, 50);
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({map: tex}));
-            ground.rotation.x = -Math.PI/2; 
-            scene.add(ground);
+            // Scatter Trees & Flowers
+            if(t1) for(let i=0; i<25; i++) spawnDeco(t1.scene, 5, 7, treesArray);
+            if(f1) for(let i=0; i<40; i++) spawnDeco(f1.scene, 2, 0, null);
 
-            // 3. Load 3D Car (From your old game assets)
-            gltfLoader.load('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb', (gltf) => {
-                const myCar = gltf.scene;
-                myCar.scale.set(4, 4, 4);
-                myCar.rotation.y = Math.PI; // Face forward
-                carGroup.add(myCar);
-                
-                // Hide loader and show game UI
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('ui-container').style.display = 'flex';
-                
-                loadQuestionUI();
-                animate();
-            }, undefined, function (error) {
-                console.error(error);
-                document.getElementById('loading-screen').innerHTML = "Error loading 3D Car. Check assets.";
-            });
+            // Setup Bulls with Animation
+            if(bullG) { 
+                [60, -60].forEach(x => { 
+                    const b = THREE.SkeletonUtils.clone(bullG.scene); 
+                    b.position.set(x, 0, -80); b.scale.set(6,6,6); scene.add(b); 
+                    bullsArray.push({mesh:b, radius:12}); 
+                    if(bullG.animations.length){ 
+                        const m = new THREE.AnimationMixer(b); 
+                        m.clipAction(bullG.animations[0]).play(); mixers.push(m); 
+                    }
+                }); 
+            }
+
+            // Build Fences around the border
+            if(fenceG) {
+                const h = MAP_SIZE/2;
+                for(let i=-h; i<=h; i+=15){ 
+                    addF(fenceG.scene, i, -h, 0); addF(fenceG.scene, i, h, 0); 
+                    addF(fenceG.scene, h, i, Math.PI/2); addF(fenceG.scene, -h, i, Math.PI/2); 
+                }
+            }
+
+            // Show Start Button
+            document.getElementById('load-text').innerText = "World Built Successfully!";
+            document.getElementById('start-btn').style.display = 'block';
 
         } catch (error) {
-            document.getElementById('loading-screen').innerHTML = "Error connecting to Google Sheet.<br>Make sure you have an internet connection.";
+            document.getElementById('load-text').innerHTML = "Error connecting. Check internet.";
         }
     }
 
-    // --- Create 3D Wooden Signboards with Dhivehi Text ---
+    function spawnDeco(m, s, r, arr) {
+        const d = m.clone(); 
+        const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
+        if(Math.abs(x)<40 && z > -20) return; // Keep spawn area clear
+        d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
+        if(arr) arr.push({mesh:d, radius:r});
+    }
+
+    function addF(m, x, z, r) { 
+        const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); scene.add(f); 
+    }
+
+    function startGameEngine() {
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('ui-container').style.display = 'flex';
+        
+        // Start Audio
+        engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3'); 
+        engineAudio.loop=true; engineAudio.play().catch(()=>{});
+        bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3'); 
+        bullAudio.loop=true; bullAudio.volume=0; bullAudio.play().catch(()=>{});
+
+        gameStarted = true;
+        loadQuestionUI();
+        animate();
+    }
+
     function createSignText(text, isCorrect) {
-        const c = document.createElement('canvas'); 
-        const ctx = c.getContext('2d');
-        c.width = 1024; 
-        c.height = 512;
-        
-        // Wooden board background color
-        ctx.fillStyle = "#8b5a2b"; 
-        ctx.fillRect(0, 0, c.width, c.height);
-        
-        // Dhivehi Text formatting
-        ctx.fillStyle = "white"; 
-        ctx.textAlign = "center"; 
-        ctx.textBaseline = "middle"; 
-        ctx.direction = "rtl"; 
-        ctx.font = `bold 60px Arial`; 
-        
-        // Write the answer in the middle of the canvas
-        ctx.fillText(text, c.width / 2, c.height / 2); 
-        
-        const tex = new THREE.CanvasTexture(c); 
-        const m = new THREE.MeshStandardMaterial({color: 0xffffff});
+        const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+        c.width = 1024; c.height = 512;
+        ctx.fillStyle = "#8b5a2b"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.direction = "rtl"; 
+        ctx.font = `bold 60px Arial`; ctx.fillText(text, c.width / 2, c.height / 2); 
+        const tex = new THREE.CanvasTexture(c); const m = new THREE.MeshStandardMaterial({color: 0xffffff});
         const mFace = new THREE.MeshStandardMaterial({map: tex});
-        
-        // Return 6 sides of the cube, face gets the canvas texture
         return { mats: [m, m, m, m, mFace, m], isCorrect: isCorrect };
     }
 
     function loadQuestionUI() {
-        // Clear old 3D boards from the scene
         signboardsArray.forEach(b => scene.remove(b.mesh));
         signboardsArray.length = 0;
 
-        // Fetch current question
         let qData = gameData[currentIsland][currentQuestion];
-        
-        // Update top UI
         document.getElementById('question-box').innerText = qData.question;
         document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
 
-        // Randomly place the correct answer Left or Right
         let isLeftCorrect = Math.random() < 0.5;
-
-        // Spawn left board (x: -30) and right board (x: 30), way down the road (z: -120)
-        spawnBoard(isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", isLeftCorrect, -30, -120);
-        spawnBoard(!isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", !isLeftCorrect, 30, -120);
+        spawnBoard(isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", isLeftCorrect, -30, -140);
+        spawnBoard(!isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", !isLeftCorrect, 30, -140);
     }
 
     function spawnBoard(text, isCorrect, xPos, zPos) {
         const signData = createSignText(text, isCorrect);
         const g = new THREE.Group();
-        
-        // Wooden Pole
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 10), new THREE.MeshStandardMaterial({color: 0x333333})); 
-        pole.position.y = 5; 
-        g.add(pole);
-        
-        // Main Board Box
-        const board = new THREE.Mesh(new THREE.BoxGeometry(24, 12, 2), signData.mats); 
-        board.position.set(0, 10, 1); 
-        g.add(board);
-        
-        // Position board in the 3D world
-        g.position.set(xPos, 0, zPos);
-        scene.add(g);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 10), new THREE.MeshStandardMaterial({color: 0x333333})); pole.position.y = 5; g.add(pole);
+        const board = new THREE.Mesh(new THREE.BoxGeometry(24, 12, 2), signData.mats); board.position.set(0, 10, 1); g.add(board);
+        g.position.set(xPos, 0, zPos); scene.add(g);
         signboardsArray.push({ mesh: g, isCorrect: isCorrect });
     }
 
-    // --- Mobile Touch Controls ---
-    let speed = 0;
-    let isTouching = false;
-    let touchX = 0;
-
+    // Controls
+    let speed = 0, isTouching = false, touchX = 0;
     window.addEventListener('touchstart', (e) => { isTouching = true; touchX = e.touches[0].clientX; });
     window.addEventListener('touchmove', (e) => { touchX = e.touches[0].clientX; });
     window.addEventListener('touchend', () => { isTouching = false; });
-    
-    // Fallback for computer mouse testing
     window.addEventListener('mousedown', (e) => { isTouching = true; touchX = e.clientX; });
     window.addEventListener('mousemove', (e) => { if(isTouching) touchX = e.clientX; });
     window.addEventListener('mouseup', () => { isTouching = false; });
 
-    // --- Core 3D Game Loop ---
     function animate() {
+        if(!gameStarted) return;
         requestAnimationFrame(animate);
         
-        // Auto Drive Forward continuously
-        speed = 1.0;
+        const delta = clock.getDelta(); 
+        mixers.forEach(m => m.update(delta)); // Animate Bulls
         
-        // Steering logic
+        speed = 1.0;
         if (isTouching) {
-            if (touchX < window.innerWidth / 2) { 
-                carGroup.rotation.y += 0.04; // Steer Left
-            } else { 
-                carGroup.rotation.y -= 0.04; // Steer Right
-            }
+            if (touchX < window.innerWidth / 2) carGroup.rotation.y += 0.04;
+            else carGroup.rotation.y -= 0.04;
         }
 
-        // Push car forward in the direction it's facing
+        const oldPos = carGroup.position.clone();
         carGroup.translateZ(-speed);
+
+        // Environment Collisions
+        for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
+        for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
+
+        // Audio Logic
+        if(bullAudio) { 
+            let mD = 1000; 
+            bullsArray.forEach(b => { 
+                let d = carGroup.position.distanceTo(b.mesh.position); 
+                if(d < mD) mD = d; 
+            }); 
+            bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+        }
         
-        // 3rd Person Camera - Follow the car dynamically
+        // Camera Follow
         const cy = carGroup.rotation.y;
-        camera.position.lerp(new THREE.Vector3(
-            carGroup.position.x + 30 * Math.sin(cy), 
-            carGroup.position.y + 12, 
-            carGroup.position.z + 30 * Math.cos(cy)
-        ), 0.1);
+        camera.position.lerp(new THREE.Vector3(carGroup.position.x + 30 * Math.sin(cy), carGroup.position.y + 12, carGroup.position.z + 30 * Math.cos(cy)), 0.1);
         camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
 
-        // Check for collisions with boards
+        // Signboard Collisions
         signboardsArray.forEach((board) => {
             if (carGroup.position.distanceTo(board.mesh.position) < 10) {
                 if (board.isCorrect) {
-                    // Correct Answer Hit!
                     currentQuestion++;
                     carGroup.position.set(0,0,0);
                     carGroup.rotation.set(0,0,0);
-                    
-                    // Check if 10 questions are finished (Island completed)
                     if (currentQuestion >= 10) {
                         currentIsland++;
                         currentQuestion = 0;
-                        
-                        if (currentIsland >= 50) {
-                            currentIsland = 0; // Restart from beginning if 500 questions beaten!
-                        }
+                        if (currentIsland >= 50) currentIsland = 0; 
                     }
                     loadQuestionUI();
                 } else {
-                    // Wrong answer! Bounce the car back
-                    carGroup.translateZ(15); 
+                    carGroup.translateZ(15); // Bounce
                 }
             }
         });
@@ -248,8 +251,7 @@
         renderer.render(scene, camera);
     }
 
-    // Trigger Game Start
-    initGame();
+    initAssets();
   </script>
 </body>
 </html>
