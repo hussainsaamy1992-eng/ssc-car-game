@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="dv" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SSC Islam Car Game</title>
+    <!-- Load the Phaser Game Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background-color: #228B22; /* Forest Green for Grass */
+            overflow: hidden; /* Stops mobile scrolling */
+            touch-action: none; /* Prevents mobile swipe gestures */
+        }
+        #loading-screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #87CEEB; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 10; font-family: Arial; 
+        }
+        #game-container { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen while we fetch your Google Sheet -->
+    <div id="loading-screen">
+        <h2 id="loading-text">Loading Game Data...</h2>
+    </div>
+
+    <!-- The Game Canvas will appear here -->
+    <div id="game-container"></div>
+
+    <script>
+        // --- 1. SETUP API ---
+        // PASTE YOUR GOOGLE SHEET WEB APP URL HERE:
+        const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
+        
+        let gameData = []; // This will hold all your islands and questions
+
+        // --- 2. FETCH DATA THEN START GAME ---
+        async function loadGameData() {
+            try {
+                const response = await fetch(API_URL + "?action=getGameData");
+                const data = await response.json();
+                
+                if (data.success && data.islands.length > 0) {
+                    gameData = data.islands;
+                    document.getElementById('loading-screen').style.display = 'none'; // Hide loading screen
+                    startGame(); // Start the game engine!
+                }
+            } catch (error) {
+                document.getElementById('loading-text').innerText = "Error loading data. Check connection.";
+            }
+        }
+
+        // --- 3. THE GAME ENGINE ---
+        let car;
+        let cursors;
+
+        function startGame() {
+            const config = {
+                type: Phaser.AUTO,
+                scale: {
+                    mode: Phaser.Scale.RESIZE, // Automatically fits the mobile screen
+                    parent: 'game-container',
+                    width: '100%',
+                    height: '100%'
+                },
+                physics: {
+                    default: 'arcade',
+                    arcade: { debug: false }
+                },
+                scene: {
+                    preload: preload,
+                    create: create,
+                    update: update
+                }
+            };
+
+            new Phaser.Game(config);
+        }
+
+        function preload() {
+            // Using a temporary free placeholder image for the car so you can see it working immediately
+            this.load.image('car', 'https://labs.phaser.io/assets/sprites/car-red.png');
+        }
+
+        function create() {
+            // Put the car in the bottom center of the screen
+            const screenCenterX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
+            const screenBottomY = this.cameras.main.worldView.y + this.cameras.main.height - 100;
+
+            car = this.physics.add.sprite(screenCenterX, screenBottomY, 'car');
+            
+            // Adjust car size and physics
+            car.setScale(0.8);
+            car.setCollideWorldBounds(true); // Stop car from driving off the edge of the phone screen
+            
+            // Allow clicking/tapping on the screen
+            this.input.addPointer(1);
+        }
+
+        function update() {
+            // The car always drives forward slowly
+            car.setVelocityY(-150); 
+            
+            // MOBILE TOUCH CONTROLS
+            if (this.input.activePointer.isDown) {
+                // If they touch the left side of the screen, steer left
+                if (this.input.activePointer.x < this.cameras.main.width / 2) {
+                    car.setVelocityX(-200); 
+                    car.setAngle(-15); // Tilt car slightly left
+                } 
+                // If they touch the right side of the screen, steer right
+                else {
+                    car.setVelocityX(200);
+                    car.setAngle(15); // Tilt car slightly right
+                }
+            } else {
+                // If not touching the screen, go straight
+                car.setVelocityX(0);
+                car.setAngle(0);
+            }
+        }
+
+        // Run the fetch function when page opens
+        loadGameData();
+    </script>
+</body>
+</html>
