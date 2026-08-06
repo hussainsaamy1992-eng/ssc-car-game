@@ -4,12 +4,10 @@
   <title>3D Island Drive - SSC Islam</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
-  <!-- Load 3D Engine & Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   
-  <!-- Fonts exactly from your old game -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@700&display=swap" rel="stylesheet">
@@ -24,6 +22,9 @@
     
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 12px 40px; font-size: 22px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; }
+    
+    /* NEW: Pause Button Styles */
+    #pause-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 50; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
   </style>
 </head>
 <body>
@@ -38,19 +39,21 @@
     <div id="question-box">Loading...</div>
   </div>
 
+  <!-- NEW: Pause Button -->
+  <button id="pause-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
+
   <script>
-    // Your EXACT Google Script API Link
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
     let gameData = [];
     let currentIsland = 0;
     let currentQuestion = 0;
     let gameStarted = false;
+    let isPaused = false; // NEW: Pause state variable
     let MAP_SIZE = 400, BOUNDARY = 190;
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
-    // 3D Scene matches old game
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
     const clock = new THREE.Clock();
@@ -80,7 +83,6 @@
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: tex}));
             ground.rotation.x = -Math.PI/2; scene.add(ground);
 
-            // Load all exactly as old game
             const [carG, t1, t2, f1, bullG, fenceG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
@@ -96,7 +98,6 @@
                 carGroup.add(myCar);
             }
 
-            // Exactly matching the old tree layout logic
             if(t1) for(let i=0; i<15; i++) spawnDeco(t1.scene, 5, 7, treesArray);
             if(t2) for(let i=0; i<15; i++) spawnDeco(t2.scene, 5, 7, treesArray);
             if(f1) for(let i=0; i<40; i++) spawnDeco(f1.scene, 2, 0, null);
@@ -132,7 +133,7 @@
     function spawnDeco(m, s, r, arr) {
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
-        if(Math.abs(x)<60 && Math.abs(z)<60) return; // Keep center clear
+        if(Math.abs(x)<60 && Math.abs(z)<60) return; 
         d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
     }
@@ -144,12 +145,27 @@
     function startGameEngine() {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('ui-container').style.display = 'flex';
+        document.getElementById('pause-btn').style.display = 'block'; // NEW: Show button
         gameStarted = true;
         loadQuestionUI();
         animate();
     }
 
-    // EXACT copy of your old createSignText function
+    // NEW: Function to handle Pausing
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pause-btn');
+        if (isPaused) {
+            btn.innerText = "▶ RESUME";
+            btn.style.background = "#27ae60"; // Green color when paused
+            btn.style.borderColor = "#2ecc71";
+        } else {
+            btn.innerText = "⏸ PAUSE";
+            btn.style.background = "#e74c3c"; // Red color when active
+            btn.style.borderColor = "#c0392b";
+        }
+    }
+
     function createSignText(text, color, isCorrect) {
         const c = document.createElement('canvas'); const ctx = c.getContext('2d');
         const canvasWidth = 1024; const fontSize = 64;
@@ -181,7 +197,6 @@
         signboardsArray.forEach(b => scene.remove(b.mesh));
         signboardsArray.length = 0;
 
-        // Reset car to center exactly like start
         carGroup.position.set(0,0,0);
         carGroup.rotation.set(0,0,0);
 
@@ -197,7 +212,6 @@
         spawnBoard(!isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", c2, !isLeftCorrect, 30, -120);
     }
 
-    // EXACT copy of your old signboard geometry
     function spawnBoard(text, color, isCorrect, xPos, zPos) {
         const signData = createSignText(text, color, isCorrect);
         const g = new THREE.Group();
@@ -220,50 +234,51 @@
         if(!gameStarted) return;
         requestAnimationFrame(animate);
         
-        const delta = clock.getDelta(); 
-        mixers.forEach(m => m.update(delta)); 
-        
-        speed = 1.0;
-        if (isTouching) {
-            if (touchX < window.innerWidth / 2) carGroup.rotation.y += 0.04;
-            else carGroup.rotation.y -= 0.04;
+        // NEW: Only update physics/movement if the game is NOT paused
+        if (!isPaused) {
+            const delta = clock.getDelta(); 
+            mixers.forEach(m => m.update(delta)); 
+            
+            speed = 1.0;
+            if (isTouching) {
+                if (touchX < window.innerWidth / 2) carGroup.rotation.y += 0.04;
+                else carGroup.rotation.y -= 0.04;
+            }
+
+            const oldPos = carGroup.position.clone();
+            carGroup.translateZ(-speed);
+
+            for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
+            for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
+            if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
+
+            const cy = carGroup.rotation.y;
+            const mPitch = 0.3; 
+            camera.position.lerp(new THREE.Vector3(
+                carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
+                carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
+                carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
+            ), 0.1);
+            camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
+
+            signboardsArray.forEach((board) => {
+                if (carGroup.position.distanceTo(board.mesh.position) < 8) {
+                    if (board.isCorrect) {
+                        currentQuestion++;
+                        if (currentQuestion >= 10) {
+                            currentIsland++;
+                            currentQuestion = 0;
+                            if (currentIsland >= 50) currentIsland = 0; 
+                        }
+                        loadQuestionUI();
+                    } else {
+                        carGroup.translateZ(15);
+                    }
+                }
+            });
         }
 
-        const oldPos = carGroup.position.clone();
-        carGroup.translateZ(-speed);
-
-        // Collisions
-        for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
-        for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
-        if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
-
-        // EXACT Camera logic from your old game
-        const cy = carGroup.rotation.y;
-        const mPitch = 0.3; // Statically fixed to your old default pitch
-        camera.position.lerp(new THREE.Vector3(
-            carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
-            carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
-            carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
-        ), 0.1);
-        camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
-
-        // Signboards
-        signboardsArray.forEach((board) => {
-            if (carGroup.position.distanceTo(board.mesh.position) < 8) {
-                if (board.isCorrect) {
-                    currentQuestion++;
-                    if (currentQuestion >= 10) {
-                        currentIsland++;
-                        currentQuestion = 0;
-                        if (currentIsland >= 50) currentIsland = 0; 
-                    }
-                    loadQuestionUI();
-                } else {
-                    carGroup.translateZ(15);
-                }
-            }
-        });
-
+        // Scene is always rendered so it doesn't go black when paused
         renderer.render(scene, camera);
     }
 
