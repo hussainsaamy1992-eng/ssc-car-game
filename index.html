@@ -4,12 +4,10 @@
   <title>3D Island Drive - SSC Islam</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
-  <!-- Load 3D Engine & Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   
-  <!-- Fonts exactly from your old game -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@700&display=swap" rel="stylesheet">
@@ -25,7 +23,6 @@
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 12px 40px; font-size: 22px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; }
     
-    /* PAUSE BUTTON FIXED: High Z-Index ensures it stays on top */
     #pause-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 9999; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
   </style>
 </head>
@@ -41,7 +38,6 @@
     <div id="question-box">Loading...</div>
   </div>
 
-  <!-- Pause Button -->
   <button id="pause-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
 
   <script>
@@ -54,8 +50,16 @@
     let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
     
-    // Audio Variables Restored
-    let engineAudio, bullAudio;
+    // ----------------------------------------------------
+    // NEW AUDIO SETUP (Pre-loading to bypass browser blocks)
+    // ----------------------------------------------------
+    let engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3');
+    engineAudio.loop = true;
+    engineAudio.volume = 1.0;
+    
+    let bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3');
+    bullAudio.loop = true;
+    bullAudio.volume = 0.0; // Starts at 0, increases when close to a bull
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
@@ -152,15 +156,9 @@
         document.getElementById('ui-container').style.display = 'flex';
         document.getElementById('pause-btn').style.display = 'block'; 
         
-        // AUDIO RESTORED
-        engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3'); 
-        engineAudio.loop = true; 
-        engineAudio.play().catch(()=>{});
-        
-        bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3'); 
-        bullAudio.loop = true; 
-        bullAudio.volume = 0; 
-        bullAudio.play().catch(()=>{});
+        // Start playing the pre-loaded audio
+        engineAudio.play().catch(e => console.log("Audio blocked by browser:", e));
+        bullAudio.play().catch(e => console.log("Audio blocked by browser:", e));
 
         gameStarted = true;
         loadQuestionUI();
@@ -174,12 +172,18 @@
             btn.innerText = "▶ RESUME";
             btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
-            if (engineAudio) engineAudio.volume = 0; // Mute engine when paused
+            
+            // Actually pause the audio files
+            engineAudio.pause();
+            bullAudio.pause();
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
-            if (engineAudio) engineAudio.volume = 1; // Unmute engine when resumed
+            
+            // Resume the audio files
+            engineAudio.play();
+            bullAudio.play();
         }
     }
 
@@ -268,13 +272,14 @@
             for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
             if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
 
-            // Audio Logic Restored
+            // Audio Logic Restored - Volume adjusts based on distance to Bulls
             if(bullAudio) { 
                 let mD = 1000; 
                 bullsArray.forEach(b => { 
                     let d = carGroup.position.distanceTo(b.mesh.position); 
                     if(d < mD) mD = d; 
                 }); 
+                // The closer you are to a bull (mD is small), the louder it gets.
                 bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
             }
 
