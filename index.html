@@ -28,10 +28,6 @@
 </head>
 <body>
 
-  <!-- THE STRONGEST AUDIO FIX: Hardcoded Native HTML5 Audio Elements -->
-  <audio id="audio-engine" src="https://hussainsaamy.github.io/game-assets/sound.mp3" loop preload="auto" crossorigin="anonymous"></audio>
-  <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
-
   <div id="loading-screen">
     <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building Island...</span>
     <button id="start-btn" onclick="startGameEngine()">START ENGINE</button>
@@ -54,9 +50,8 @@
     let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
     
-    // Audio Variables linked directly to the HTML tags
-    let engineAudio = document.getElementById('audio-engine');
-    let bullAudio = document.getElementById('audio-bull');
+    // Global Audio Variables
+    let engineAudio, bullAudio;
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
@@ -153,19 +148,19 @@
         document.getElementById('ui-container').style.display = 'flex';
         document.getElementById('pause-btn').style.display = 'block'; 
         
-        // --- BULLETPROOF AUDIO TRIGGER ---
-        engineAudio.volume = 1.0;
-        bullAudio.volume = 0.0;
+        // Exact Audio setup from your original code
+        engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3');
+        engineAudio.loop = true;
         
-        let playPromise1 = engineAudio.play();
-        if (playPromise1 !== undefined) {
-            playPromise1.catch(e => console.log("Engine Audio Blocked:", e));
-        }
+        // Attempt to play and show a visible alert if it fails!
+        engineAudio.play().catch(function(error) {
+            alert("SOUND ERROR: " + error.message + "\n\nIs 'sound.mp3' spelled exactly like this in your GitHub repository?");
+        });
 
-        let playPromise2 = bullAudio.play();
-        if (playPromise2 !== undefined) {
-            playPromise2.catch(e => console.log("Bull Audio Blocked:", e));
-        }
+        bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3');
+        bullAudio.loop = true;
+        bullAudio.volume = 0;
+        bullAudio.play().catch(e => console.log("Bull sound error", e));
 
         gameStarted = true;
         loadQuestionUI();
@@ -180,15 +175,15 @@
             btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
             
-            engineAudio.pause();
-            bullAudio.pause();
+            if(engineAudio) engineAudio.pause();
+            if(bullAudio) bullAudio.pause();
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
             
-            engineAudio.play();
-            bullAudio.play();
+            if(engineAudio) engineAudio.play();
+            if(bullAudio) bullAudio.play();
         }
     }
 
@@ -276,13 +271,15 @@
             for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
             if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
 
-            // Audio fading based on Bull distance
-            let mD = 1000; 
-            bullsArray.forEach(b => { 
-                let d = carGroup.position.distanceTo(b.mesh.position); 
-                if(d < mD) mD = d; 
-            }); 
-            bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+            // Audio Logic updates based on distance to bulls
+            if(bullAudio) { 
+                let mD = 1000; 
+                bullsArray.forEach(b => { 
+                    let d = carGroup.position.distanceTo(b.mesh.position); 
+                    if(d < mD) mD = d; 
+                }); 
+                bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+            }
 
             const cy = carGroup.rotation.y;
             const mPitch = 0.3; 
