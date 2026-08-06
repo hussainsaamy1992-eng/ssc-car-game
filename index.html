@@ -3,130 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SSC Islam Car Game</title>
-    <!-- Load the Phaser Game Engine -->
+    <title>SSC Islam Island Car Game</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
     <style>
         body { 
-            margin: 0; 
-            padding: 0; 
-            background-color: #228B22; /* Forest Green for Grass */
-            overflow: hidden; /* Stops mobile scrolling */
-            touch-action: none; /* Prevents mobile swipe gestures */
+            margin: 0; padding: 0; background-color: #2e8b57; 
+            overflow: hidden; touch-action: none; font-family: Arial, sans-serif;
         }
-        #loading-screen { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #87CEEB; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; z-index: 10; font-family: Arial; 
+        /* Email Login Screen */
+        #login-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(135, 206, 235, 0.95); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        #game-container { width: 100vw; height: 100vh; }
+        #login-box {
+            background: white; padding: 25px; border-radius: 15px; text-align: center;
+            width: 80%; max-width: 350px; box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
+        }
+        input[type="email"] {
+            width: 90%; padding: 10px; margin: 15px 0; border: 2px solid #333;
+            border-radius: 5px; font-size: 16px; text-align: center;
+        }
+        button {
+            background: #28a745; color: white; border: none; padding: 10px 25px;
+            font-size: 18px; border-radius: 5px; cursor: pointer; font-weight: bold;
+        }
+        #error-msg { color: red; margin-top: 10px; font-weight: bold; }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            pointer-events: none; z-index: 10; display: flex; flex-direction: column; gap: 10px;
+        }
+        .trophy-box {
+            background: rgba(0, 0, 0, 0.7); color: gold; padding: 5px 15px;
+            border-radius: 20px; font-size: 18px; font-weight: bold; align-self: flex-start;
+        }
+        .question-box {
+            background: rgba(255, 255, 255, 0.95); color: #000; padding: 12px;
+            border-radius: 10px; font-size: 20px; font-weight: bold; text-align: center;
+            border: 3px solid #333; box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+        }
+        #arrow-indicator {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            font-size: 50px; color: #00ff00; display: none; animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, 0); }
+            50% { transform: translate(-50%, -15px); }
+        }
     </style>
 </head>
 <body>
 
-    <!-- Loading Screen while we fetch your Google Sheet -->
-    <div id="loading-screen">
-        <h2 id="loading-text">Loading Game Data...</h2>
+    <!-- Email Authentication Screen -->
+    <div id="login-screen">
+        <div id="login-box">
+            <h2>Welcome Student!</h2>
+            <p>Enter your registered email to enter the Island Drive Game:</p>
+            <input type="email" id="user-email" placeholder="example@gmail.com">
+            <button onclick="verifyEmail()">Start Game</button>
+            <p id="error-msg"></p>
+        </div>
     </div>
 
-    <!-- The Game Canvas will appear here -->
+    <!-- Top Screen UI -->
+    <div id="ui-layer">
+        <div class="trophy-box">🏆 <span id="trophy-counter">1 / 50</span></div>
+        <div class="question-box" id="question-text">Loading Question...</div>
+    </div>
+    
+    <div id="arrow-indicator">⬆️ Drive across the bridge!</div>
+
     <div id="game-container"></div>
 
     <script>
-        // --- 1. SETUP API ---
-        // PASTE YOUR GOOGLE SHEET WEB APP URL HERE:
+        // PASTE YOUR WEB APP URL HERE:
         const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
-        
-        let gameData = []; // This will hold all your islands and questions
 
-        // --- 2. FETCH DATA THEN START GAME ---
-        async function loadGameData() {
+        let gameData = [];
+        let currentIsland = 0; // 0 to 49
+        let currentQuestion = 0; // 0 to 9
+        let car, signboards, bridgeGate, phaserScene;
+
+        async function verifyEmail() {
+            const email = document.getElementById('user-email').value;
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.innerText = "Checking access...";
+
             try {
-                const response = await fetch(API_URL + "?action=getGameData");
-                const data = await response.json();
-                
-                if (data.success && data.islands.length > 0) {
-                    gameData = data.islands;
-                    document.getElementById('loading-screen').style.display = 'none'; // Hide loading screen
-                    startGame(); // Start the game engine!
+                const res = await fetch(`${API_URL}?action=checkEmail&email=${email}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('login-screen').style.display = 'none';
+                    loadGameQuestions();
+                } else {
+                    errorMsg.innerText = data.message;
                 }
-            } catch (error) {
-                document.getElementById('loading-text').innerText = "Error loading data. Check connection.";
+            } catch (err) {
+                errorMsg.innerText = "Error connecting. Try again.";
             }
         }
 
-        // --- 3. THE GAME ENGINE ---
-        let car;
-        let cursors;
+        async function loadGameQuestions() {
+            const res = await fetch(`${API_URL}?action=getGameData`);
+            const data = await res.json();
+            gameData = data.islands;
+            initPhaserGame();
+        }
 
-        function startGame() {
+        function initPhaserGame() {
             const config = {
                 type: Phaser.AUTO,
-                scale: {
-                    mode: Phaser.Scale.RESIZE, // Automatically fits the mobile screen
-                    parent: 'game-container',
-                    width: '100%',
-                    height: '100%'
-                },
-                physics: {
-                    default: 'arcade',
-                    arcade: { debug: false }
-                },
-                scene: {
-                    preload: preload,
-                    create: create,
-                    update: update
-                }
+                scale: { mode: Phaser.Scale.RESIZE, parent: 'game-container', width: '100%', height: '100%' },
+                physics: { default: 'arcade', arcade: { debug: false } },
+                scene: { preload: preload, create: create, update: update }
             };
-
             new Phaser.Game(config);
         }
 
         function preload() {
-            // Using a temporary free placeholder image for the car so you can see it working immediately
             this.load.image('car', 'https://labs.phaser.io/assets/sprites/car-red.png');
+            // Drawing procedural textures for Grass, Trees, Signboards, Bridge
+            createProceduralGraphics(this);
         }
 
         function create() {
-            // Put the car in the bottom center of the screen
-            const screenCenterX = this.cameras.main.worldView.x + this.cameras.main.width / 2;
-            const screenBottomY = this.cameras.main.worldView.y + this.cameras.main.height - 100;
+            phaserScene = this;
+            const w = this.scale.width;
+            const h = this.scale.height;
 
-            car = this.physics.add.sprite(screenCenterX, screenBottomY, 'car');
-            
-            // Adjust car size and physics
-            car.setScale(0.8);
-            car.setCollideWorldBounds(true); // Stop car from driving off the edge of the phone screen
-            
-            // Allow clicking/tapping on the screen
+            // Grass Background & Road Path
+            this.add.rectangle(w/2, h/2, w, h, 0x34a853);
+            this.add.rectangle(w/2, h/2, w * 0.6, h, 0x8b5a2b); // Dirt road path
+
+            // Bridge at the top leading to next island
+            this.add.rectangle(w/2, 60, w * 0.7, 80, 0x5c4033); // Wooden Bridge
+            bridgeGate = this.physics.add.staticSprite(w/2, 80, null);
+            bridgeGate.setSize(w, 20);
+
+            // Car Setup
+            car = this.physics.add.sprite(w / 2, h - 80, 'car').setScale(0.8);
+            car.setCollideWorldBounds(true);
+
+            // Groups
+            signboards = this.physics.add.group();
+
+            // Collisions
+            this.physics.add.overlap(car, signboards, hitSignboard, null, this);
+            this.physics.add.collider(car, bridgeGate, crossBridge, null, this);
+
             this.input.addPointer(1);
+            
+            loadQuestionUI();
         }
 
         function update() {
-            // The car always drives forward slowly
-            car.setVelocityY(-150); 
-            
-            // MOBILE TOUCH CONTROLS
+            car.setVelocityY(-120); // Drive forward constantly
+
             if (this.input.activePointer.isDown) {
-                // If they touch the left side of the screen, steer left
                 if (this.input.activePointer.x < this.cameras.main.width / 2) {
-                    car.setVelocityX(-200); 
-                    car.setAngle(-15); // Tilt car slightly left
-                } 
-                // If they touch the right side of the screen, steer right
-                else {
-                    car.setVelocityX(200);
-                    car.setAngle(15); // Tilt car slightly right
+                    car.setVelocityX(-180);
+                    car.setAngle(-15);
+                } else {
+                    car.setVelocityX(180);
+                    car.setAngle(15);
                 }
             } else {
-                // If not touching the screen, go straight
                 car.setVelocityX(0);
                 car.setAngle(0);
             }
         }
 
-        // Run the fetch function when page opens
-        loadGameData();
+        function loadQuestionUI() {
+            signboards.clear(true, true);
+            document.getElementById('arrow-indicator').style.display = 'none';
+
+            let qData = gameData[currentIsland][currentQuestion];
+            document.getElementById('question-text').innerText = qData.question;
+            document.getElementById('trophy-counter').innerText = `${currentIsland + 1} / 50`;
+
+            // Spawn Signboards (1 Correct, 1 Fake)
+            const w = phaserScene.scale.width;
+            
+            // Randomly place correct answer Left or Right
+            let isLeftCorrect = Math.random() < 0.5;
+
+            createBoard(w * 0.3, 250, isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", isLeftCorrect);
+            createBoard(w * 0.7, 250, !isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", !isLeftCorrect);
+        }
+
+        function createBoard(x, y, text, isCorrect) {
+            let board = signboards.create(x, y, 'boardTexture');
+            board.isCorrect = isCorrect;
+            
+            let txt = phaserScene.add.text(x, y - 5, text, { 
+                fontSize: '16px', color: '#000', align: 'center', wordWrap: { width: 110 } 
+            }).setOrigin(0.5);
+            board.textObj = txt;
+        }
+
+        function hitSignboard(carSprite, board) {
+            if (board.isCorrect) {
+                currentQuestion++;
+                resetCarPosition();
+
+                if (currentQuestion >= 10) {
+                    // Island Completed! Open Bridge
+                    document.getElementById('question-text').innerText = "🎉 Island Completed! Drive across the bridge!";
+                    document.getElementById('arrow-indicator').style.display = 'block';
+                    signboards.clear(true, true);
+                    bridgeGate.disableBody(true, true); // Unlock bridge
+                } else {
+                    loadQuestionUI();
+                }
+            } else {
+                // Bounce back on wrong hit
+                car.setPosition(phaserScene.scale.width / 2, phaserScene.scale.height - 80);
+            }
+        }
+
+        function crossBridge() {
+            if (currentQuestion >= 10) {
+                currentIsland++;
+                currentQuestion = 0;
+                bridgeGate.enableBody(false, phaserScene.scale.width/2, 80, true, true); // Relock bridge
+                resetCarPosition();
+                loadQuestionUI();
+            }
+        }
+
+        function resetCarPosition() {
+            car.setPosition(phaserScene.scale.width / 2, phaserScene.scale.height - 80);
+            car.setVelocity(0);
+        }
+
+        function createProceduralGraphics(scene) {
+            let graphics = scene.make.graphics({x: 0, y: 0, add: false});
+            // Signboard texture
+            graphics.fillStyle(0xd2b48c, 1);
+            graphics.fillRect(0, 0, 120, 50);
+            graphics.fillStyle(0x5c4033, 1);
+            graphics.fillRect(52, 50, 16, 30);
+            graphics.generateTexture('boardTexture', 120, 80);
+        }
     </script>
 </body>
 </html>
