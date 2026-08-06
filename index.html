@@ -4,27 +4,29 @@
   <title>3D Island Drive - SSC Islam</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   
+  <!-- Load 3D Engine & Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   
+  <!-- Fonts exactly from your old game -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@700&display=swap" rel="stylesheet">
 
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; touch-action: none; font-family: 'Faruma', 'MV Boli', 'Noto Sans Thaana', sans-serif !important; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
     
-    #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 10; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+    #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
     #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3);}
     
-    #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; font-size: 24px; text-align: center; padding: 20px; }
+    #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 12px 40px; font-size: 22px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; }
     
-    /* NEW: Pause Button Styles */
-    #pause-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 50; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
+    /* PAUSE BUTTON FIXED: High Z-Index ensures it stays on top */
+    #pause-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 9999; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
   </style>
 </head>
 <body>
@@ -39,7 +41,7 @@
     <div id="question-box">Loading...</div>
   </div>
 
-  <!-- NEW: Pause Button -->
+  <!-- Pause Button -->
   <button id="pause-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
 
   <script>
@@ -49,8 +51,11 @@
     let currentIsland = 0;
     let currentQuestion = 0;
     let gameStarted = false;
-    let isPaused = false; // NEW: Pause state variable
+    let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
+    
+    // Audio Variables Restored
+    let engineAudio, bullAudio;
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
@@ -145,24 +150,36 @@
     function startGameEngine() {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('ui-container').style.display = 'flex';
-        document.getElementById('pause-btn').style.display = 'block'; // NEW: Show button
+        document.getElementById('pause-btn').style.display = 'block'; 
+        
+        // AUDIO RESTORED
+        engineAudio = new Audio('https://hussainsaamy.github.io/game-assets/sound.mp3'); 
+        engineAudio.loop = true; 
+        engineAudio.play().catch(()=>{});
+        
+        bullAudio = new Audio('https://hussainsaamy.github.io/game-assets/bull.mp3'); 
+        bullAudio.loop = true; 
+        bullAudio.volume = 0; 
+        bullAudio.play().catch(()=>{});
+
         gameStarted = true;
         loadQuestionUI();
         animate();
     }
 
-    // NEW: Function to handle Pausing
     function togglePause() {
         isPaused = !isPaused;
         const btn = document.getElementById('pause-btn');
         if (isPaused) {
             btn.innerText = "▶ RESUME";
-            btn.style.background = "#27ae60"; // Green color when paused
+            btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
+            if (engineAudio) engineAudio.volume = 0; // Mute engine when paused
         } else {
             btn.innerText = "⏸ PAUSE";
-            btn.style.background = "#e74c3c"; // Red color when active
+            btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
+            if (engineAudio) engineAudio.volume = 1; // Unmute engine when resumed
         }
     }
 
@@ -223,18 +240,17 @@
 
     // Controls
     let speed = 0, isTouching = false, touchX = 0;
-    window.addEventListener('touchstart', (e) => { isTouching = true; touchX = e.touches[0].clientX; });
-    window.addEventListener('touchmove', (e) => { touchX = e.touches[0].clientX; });
+    window.addEventListener('touchstart', (e) => { if(!isPaused) { isTouching = true; touchX = e.touches[0].clientX; }});
+    window.addEventListener('touchmove', (e) => { if(!isPaused) { touchX = e.touches[0].clientX; }});
     window.addEventListener('touchend', () => { isTouching = false; });
-    window.addEventListener('mousedown', (e) => { isTouching = true; touchX = e.clientX; });
-    window.addEventListener('mousemove', (e) => { if(isTouching) touchX = e.clientX; });
+    window.addEventListener('mousedown', (e) => { if(!isPaused) { isTouching = true; touchX = e.clientX; }});
+    window.addEventListener('mousemove', (e) => { if(isTouching && !isPaused) touchX = e.clientX; });
     window.addEventListener('mouseup', () => { isTouching = false; });
 
     function animate() {
         if(!gameStarted) return;
         requestAnimationFrame(animate);
         
-        // NEW: Only update physics/movement if the game is NOT paused
         if (!isPaused) {
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
@@ -251,6 +267,16 @@
             for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
             for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
             if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
+
+            // Audio Logic Restored
+            if(bullAudio) { 
+                let mD = 1000; 
+                bullsArray.forEach(b => { 
+                    let d = carGroup.position.distanceTo(b.mesh.position); 
+                    if(d < mD) mD = d; 
+                }); 
+                bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+            }
 
             const cy = carGroup.rotation.y;
             const mPitch = 0.3; 
@@ -278,7 +304,6 @@
             });
         }
 
-        // Scene is always rendered so it doesn't go black when paused
         renderer.render(scene, camera);
     }
 
