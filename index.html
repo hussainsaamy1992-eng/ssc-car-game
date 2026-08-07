@@ -33,7 +33,6 @@
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
     
-    /* NEW: Tap to start text */
     #tap-indicator { position: absolute; top: 60%; width: 100%; text-align: center; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 50; animation: blink 1.5s infinite; pointer-events: none; display: none; }
     @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.2;} 100% {opacity: 1;} }
   </style>
@@ -53,7 +52,7 @@
     <div id="question-box">Loading...</div>
   </div>
   
-  <div id="tap-indicator">Tap anywhere to drive!</div>
+  <div id="tap-indicator">Tap sides to steer.<br>Swipe middle to look!</div>
 
   <div id="left-controls">
     <button id="pause-btn" class="control-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
@@ -74,21 +73,21 @@
     let currentQuestion = 0;
     let gameStarted = false;
     let isPaused = false; 
-    let isDriving = false; // NEW: Controls whether the car is actively moving
+    let isDriving = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
     let cameraMode = 0; 
     
+    // NEW: Variables for smooth camera looking
+    let activeSteering = 0; // -1 = Right, 1 = Left, 0 = None
+    let isLooking = false;
+    let lookStartX = 0;
+    let camAngleOffset = 0;
+    let targetCamAngleOffset = 0;
+
     let engineAudio = document.getElementById('audio-engine');
     let bullAudio = document.getElementById('audio-bull');
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
-    
-    // NEW: Tighter 10-Board Layout Pattern safely away from bulls
-    const boardPositions = [
-        {x: -45, z: -50}, {x: 0, z: -50}, {x: 45, z: -50},
-        {x: -60, z: -90}, {x: -20, z: -90}, {x: 20, z: -90}, {x: 60, z: -90},
-        {x: -45, z: -130}, {x: 0, z: -130}, {x: 45, z: -130}
-    ];
     
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
@@ -142,13 +141,12 @@
                 carGroup.add(myCar);
             }
 
-            if(t1) for(let i=0; i<15; i++) spawnDeco(t1.scene, 5, 7, treesArray);
-            if(t2) for(let i=0; i<15; i++) spawnDeco(t2.scene, 5, 7, treesArray);
-            if(f1) for(let i=0; i<40; i++) spawnDeco(f1.scene, 2, 0, null);
+            if(t1) for(let i=0; i<25; i++) spawnDeco(t1.scene, 5, 7, treesArray);
+            if(t2) for(let i=0; i<25; i++) spawnDeco(t2.scene, 5, 7, treesArray);
+            if(f1) for(let i=0; i<50; i++) spawnDeco(f1.scene, 2, 0, null);
 
-            // NEW: Bulls pushed to the far edges of the map
             if(bullG) { 
-                [100, -100].forEach(x => { 
+                [140, -140].forEach(x => { 
                     const b = THREE.SkeletonUtils.clone(bullG.scene); 
                     b.position.set(x, 0, -60); b.scale.set(6,6,6); scene.add(b); 
                     bullsArray.push({mesh:b, radius:12}); 
@@ -178,8 +176,8 @@
     function spawnDeco(m, s, r, arr) {
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
-        // NEW: Enforced a strict 'Safe Zone' where trees cannot spawn (protects start area and boards)
-        if(x > -85 && x < 85 && z > -160 && z < 20) return; 
+        // Keep the immediate starting area clean
+        if(Math.abs(x) < 40 && Math.abs(z) < 40) return; 
         
         d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
@@ -194,7 +192,7 @@
         document.getElementById('ui-container').style.display = 'flex';
         document.getElementById('left-controls').style.display = 'flex'; 
         document.getElementById('speed-container').style.display = 'flex'; 
-        document.getElementById('tap-indicator').style.display = 'block'; // Show Tap to start
+        document.getElementById('tap-indicator').style.display = 'block'; 
         
         engineAudio.volume = 1.0;
         bullAudio.volume = 0.0;
@@ -203,7 +201,7 @@
         bullAudio.play().catch(e => console.log(e));
 
         gameStarted = true;
-        isDriving = false; // Car starts parked
+        isDriving = false; 
         loadIslandBoards(); 
         animate();
     }
@@ -220,7 +218,7 @@
             bullAudio.pause();
 
             controls.enabled = true;
-            controls.target.set(carGroup.position.x, 5, carGroup.position.z - 40); 
+            controls.target.set(carGroup.position.x, 5, carGroup.position.z - 20); 
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
             btn.innerText = "⏸ PAUSE";
@@ -270,6 +268,38 @@
         return { mats: [m, m, m, m, new THREE.MeshStandardMaterial({map: tex}), m], w: 24, h: (canvasHeight / canvasWidth) * 24 };
     }
 
+    // NEW: Smart Random Placement for Boards safely away from obstacles
+    function getSafeBoardPosition() {
+        let pos = {x: 0, z: 0};
+        let safe = false;
+        let attempts = 0;
+        
+        while (!safe && attempts < 200) {
+            // Randomly scatter across the island, but mostly in front of the start area
+            pos.x = (Math.random() - 0.5) * (MAP_SIZE - 60); 
+            pos.z = (Math.random() - 0.5) * (MAP_SIZE - 60);
+            
+            // Don't spawn directly on top of the car's starting area
+            if (Math.abs(pos.x) < 30 && Math.abs(pos.z) < 30) { attempts++; continue; }
+            
+            safe = true;
+            // Keep away from trees
+            for (let t of treesArray) {
+                if (Math.hypot(pos.x - t.mesh.position.x, pos.z - t.mesh.position.z) < 15) safe = false;
+            }
+            // Keep away from bulls
+            for (let b of bullsArray) {
+                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 25) safe = false;
+            }
+            // Keep away from other boards
+            for (let b of signboardsArray) {
+                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 20) safe = false;
+            }
+            attempts++;
+        }
+        return pos;
+    }
+
     function loadIslandBoards() {
         signboardsArray.forEach(b => scene.remove(b.mesh));
         signboardsArray.length = 0;
@@ -286,14 +316,14 @@
 
         for(let i = 0; i < answerSet.length && i < 10; i++) {
             let color = signColors[i % signColors.length];
-            let pos = boardPositions[i];
+            let pos = getSafeBoardPosition();
             spawnBoard(answerSet[i].text, color, answerSet[i].qIndex, pos.x, pos.z);
         }
 
         carGroup.position.set(0,0,0);
         carGroup.rotation.set(0,0,0);
-        isDriving = false; // Park the car on new island
-        document.getElementById('tap-indicator').style.display = 'block'; // Show instructions
+        isDriving = false; 
+        document.getElementById('tap-indicator').style.display = 'block'; 
         updateQuestionUI();
     }
 
@@ -334,31 +364,49 @@
         signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
-    let isTouching = false, touchX = 0;
-    
+    // NEW: Advanced Input Handling for Steering vs Looking
     function handleInteractionStart(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
-            isTouching = true;
-            isDriving = true; // NEW: Starts the car moving
-            document.getElementById('tap-indicator').style.display = 'none'; // Hide text
-            touchX = e.touches ? e.touches[0].clientX : e.clientX;
+            isDriving = true; 
+            document.getElementById('tap-indicator').style.display = 'none'; 
+            
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let screenW = window.innerWidth;
+
+            if (clientX < screenW * 0.3) {
+                activeSteering = 1; // Left 30% = Steer Left
+            } else if (clientX > screenW * 0.7) {
+                activeSteering = -1; // Right 30% = Steer Right
+            } else {
+                isLooking = true; // Middle 40% = Look Around
+                lookStartX = clientX;
+            }
         }
     }
     
     function handleInteractionMove(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-        if (isTouching && !isPaused) {
-            touchX = e.touches ? e.touches[0].clientX : e.clientX;
+        if (!isPaused && isLooking) {
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let deltaX = clientX - lookStartX;
+            // Pan the camera angle based on drag distance
+            targetCamAngleOffset = -(deltaX / window.innerWidth) * Math.PI * 1.5; 
         }
+    }
+
+    function handleInteractionEnd() {
+        activeSteering = 0;
+        isLooking = false;
+        targetCamAngleOffset = 0; // Release screen -> camera snaps back to center
     }
 
     window.addEventListener('touchstart', handleInteractionStart, {passive: false});
     window.addEventListener('mousedown', handleInteractionStart);
     window.addEventListener('touchmove', handleInteractionMove, {passive: false});
     window.addEventListener('mousemove', handleInteractionMove);
-    window.addEventListener('touchend', () => { isTouching = false; });
-    window.addEventListener('mouseup', () => { isTouching = false; });
+    window.addEventListener('touchend', handleInteractionEnd);
+    window.addEventListener('mouseup', handleInteractionEnd);
 
     function animate() {
         if(!gameStarted) return;
@@ -368,16 +416,17 @@
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
             
+            // Smoothly animate the camera offset back to center or to the drag position
+            camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
+            
             let speed = parseFloat(document.getElementById('speed-slider').value);
             
-            // NEW: Car only drives if 'isDriving' is true
             if (isDriving) {
                 if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
 
-                if (isTouching) {
-                    if (touchX < window.innerWidth / 2) carGroup.rotation.y += 0.04;
-                    else carGroup.rotation.y -= 0.04;
-                }
+                // Apply Steering from Left/Right taps
+                if (activeSteering === 1) carGroup.rotation.y += 0.04;
+                else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
 
                 const oldPos = carGroup.position.clone();
                 carGroup.translateZ(-speed);
@@ -397,32 +446,26 @@
                             correctHit = true;
                             break;
                         } else {
-                            // HIT WRONG BOARD
-                            carGroup.translateZ(15); // Bounce back
-                            isDriving = false;       // Stop the car completely!
-                            document.getElementById('tap-indicator').style.display = 'block'; // Tell player to tap to go again
+                            carGroup.translateZ(15); 
+                            isDriving = false;       
+                            document.getElementById('tap-indicator').style.display = 'block'; 
                             showWrongAnswerUI();
                             break;
                         }
                     }
                 }
 
-                // HIT CORRECT BOARD
                 if (correctHit) {
                     scene.remove(signboardsArray[hitIndex].mesh);
                     signboardsArray.splice(hitIndex, 1);
                     currentQuestion++;
-                    
-                    // Notice: We NO LONGER reset the car position! It drives right through!
                     updateQuestionUI();
                 }
 
             } else {
-                // Car is parked/stopped
-                if(engineAudio) engineAudio.playbackRate = 0.5; // Idle engine sound
+                if(engineAudio) engineAudio.playbackRate = 0.5; 
             }
 
-            // Audio fading based on Bull distance
             let mD = 1000; 
             bullsArray.forEach(b => { 
                 let d = carGroup.position.distanceTo(b.mesh.position); 
@@ -430,7 +473,8 @@
             }); 
             bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
-            const cy = carGroup.rotation.y;
+            // Calculate base rotation PLUS the user's manual look offset!
+            const cy = carGroup.rotation.y + camAngleOffset; 
             
             if (cameraMode === 0) {
                 const mPitch = 0.3; 
@@ -439,7 +483,12 @@
                     carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
                     carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
                 ), 0.1);
-                camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
+                // Look exactly where the camera is rotated towards
+                camera.lookAt(
+                    carGroup.position.x - 20 * Math.sin(cy), 
+                    carGroup.position.y + 1, 
+                    carGroup.position.z - 20 * Math.cos(cy)
+                );
                 
             } else if (cameraMode === 1) {
                 camera.position.lerp(new THREE.Vector3(
