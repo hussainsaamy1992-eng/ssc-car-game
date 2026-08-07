@@ -7,6 +7,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <!-- NEW: OrbitControls for zooming and panning while paused -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,13 +25,11 @@
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
-    /* NEW: Left Side Controls Container */
     #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 10px; }
     .control-btn { padding: 12px 15px; font-size: 16px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
     #pause-btn { background: #e74c3c; border-bottom: 4px solid #c0392b; }
     #cam-btn { background: #3498db; border-bottom: 4px solid #2980b9; }
     
-    /* Speed Slider UI on Bottom Right */
     #speed-container { position: absolute; bottom: 20px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
@@ -51,13 +51,11 @@
     <div id="question-box">Loading...</div>
   </div>
 
-  <!-- Left Side Buttons -->
   <div id="left-controls">
     <button id="pause-btn" class="control-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
     <button id="cam-btn" class="control-btn" onclick="toggleCamera()" dir="ltr">🎥 ACTION</button>
   </div>
 
-  <!-- Speed Slider -->
   <div id="speed-container">
     <span class="speed-icon">🐰</span>
     <input type="range" id="speed-slider" min="0" max="2.5" step="0.1" value="1.0" orient="vertical" dir="ltr">
@@ -73,7 +71,7 @@
     let gameStarted = false;
     let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
-    let cameraMode = 0; // NEW: 0 = Action, 1 = Drone, 2 = 360 Spin
+    let cameraMode = 0; 
     
     let engineAudio = document.getElementById('audio-engine');
     let bullAudio = document.getElementById('audio-bull');
@@ -88,6 +86,12 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
+
+    // NEW: Initialize OrbitControls for the pause menu
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enabled = false; // Keep disabled until paused
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
@@ -171,7 +175,7 @@
     function startGameEngine() {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('ui-container').style.display = 'flex';
-        document.getElementById('left-controls').style.display = 'flex'; // Show buttons
+        document.getElementById('left-controls').style.display = 'flex'; 
         document.getElementById('speed-container').style.display = 'flex'; 
         
         engineAudio.volume = 1.0;
@@ -192,18 +196,26 @@
             btn.innerText = "▶ RESUME";
             btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
+            
             engineAudio.pause();
             bullAudio.pause();
+
+            // NEW: Enable Free Camera Control when Paused
+            controls.enabled = true;
+            controls.target.copy(carGroup.position); // Focus controls around the car
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
+            
             engineAudio.play();
             bullAudio.play();
+
+            // NEW: Disable Free Camera when unpaused
+            controls.enabled = false;
         }
     }
 
-    // NEW: Camera Toggle Function
     function toggleCamera() {
         cameraMode = (cameraMode + 1) % 3;
         const btn = document.getElementById('cam-btn');
@@ -270,7 +282,7 @@
     let isTouching = false, touchX = 0;
     
     function handleInteractionStart(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; // Ignore steering if clicking buttons
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
             isTouching = true;
             touchX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -284,6 +296,7 @@
         }
     }
 
+    // Passive false is needed so touch controls don't fight with the OrbitControls
     window.addEventListener('touchstart', handleInteractionStart, {passive: false});
     window.addEventListener('mousedown', handleInteractionStart);
     window.addEventListener('touchmove', handleInteractionMove, {passive: false});
@@ -296,6 +309,7 @@
         requestAnimationFrame(animate);
         
         if (!isPaused) {
+            // GAME IS RUNNING - Auto Camera & Physics
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
             
@@ -326,9 +340,7 @@
 
             const cy = carGroup.rotation.y;
             
-            // --- NEW: Dynamic Camera Modes ---
             if (cameraMode === 0) {
-                // 🎥 ACTION VIEW (Classic 3rd Person)
                 const mPitch = 0.3; 
                 camera.position.lerp(new THREE.Vector3(
                     carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
@@ -338,13 +350,11 @@
                 camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
                 
             } else if (cameraMode === 1) {
-                // 🚁 DRONE VIEW (High Overview looking ahead)
                 camera.position.lerp(new THREE.Vector3(
                     carGroup.position.x + 40 * Math.sin(cy), 
                     carGroup.position.y + 50, 
                     carGroup.position.z + 40 * Math.cos(cy)
                 ), 0.1);
-                // Look 20 units ahead of the car to see the boards!
                 camera.lookAt(
                     carGroup.position.x - 20 * Math.sin(cy), 
                     carGroup.position.y, 
@@ -352,7 +362,6 @@
                 );
                 
             } else if (cameraMode === 2) {
-                // 🔄 360 VIEW (Spins around the car)
                 const time = Date.now() * 0.0005; 
                 camera.position.lerp(new THREE.Vector3(
                     carGroup.position.x + 40 * Math.sin(time), 
@@ -377,6 +386,9 @@
                     }
                 }
             });
+        } else {
+            // GAME IS PAUSED - Manual Camera Control
+            controls.update(); 
         }
 
         renderer.render(scene, camera);
