@@ -52,7 +52,7 @@
     <div id="question-box">Loading...</div>
   </div>
   
-  <div id="tap-indicator">Tap sides to steer.<br>Swipe middle to look!</div>
+  <div id="tap-indicator">Tap sides to steer.<br>Swipe middle to look around!</div>
 
   <div id="left-controls">
     <button id="pause-btn" class="control-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
@@ -77,12 +77,16 @@
     let MAP_SIZE = 400, BOUNDARY = 190;
     let cameraMode = 0; 
     
-    // NEW: Variables for smooth camera looking
-    let activeSteering = 0; // -1 = Right, 1 = Left, 0 = None
+    let activeSteering = 0; 
     let isLooking = false;
     let lookStartX = 0;
+    let lookStartY = 0;
     let camAngleOffset = 0;
     let targetCamAngleOffset = 0;
+    
+    // NEW: Vertical camera pitch variables
+    let camPitchOffset = 0;
+    let targetCamPitchOffset = 0;
 
     let engineAudio = document.getElementById('audio-engine');
     let bullAudio = document.getElementById('audio-bull');
@@ -176,7 +180,6 @@
     function spawnDeco(m, s, r, arr) {
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
-        // Keep the immediate starting area clean
         if(Math.abs(x) < 40 && Math.abs(z) < 40) return; 
         
         d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
@@ -241,6 +244,7 @@
         if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW";
     }
 
+    // NEW: Modified to return Texture directly for Double-Sided placement
     function createSignText(text, color) {
         const c = document.createElement('canvas'); const ctx = c.getContext('2d');
         const canvasWidth = 1024; const fontSize = 64;
@@ -264,37 +268,24 @@
         const startY = (c.height / 2) - (((lines.length - 1) * (fontSize + 30)) / 2);
         lines.forEach((line, index) => { ctx.fillText(line, c.width / 2, startY + (index * (fontSize + 30))); });
         
-        const tex = new THREE.CanvasTexture(c); const m = new THREE.MeshStandardMaterial({color: color});
-        return { mats: [m, m, m, m, new THREE.MeshStandardMaterial({map: tex}), m], w: 24, h: (canvasHeight / canvasWidth) * 24 };
+        const tex = new THREE.CanvasTexture(c); 
+        return { tex: tex, color: color, w: 24, h: (canvasHeight / canvasWidth) * 24 };
     }
 
-    // NEW: Smart Random Placement for Boards safely away from obstacles
     function getSafeBoardPosition() {
         let pos = {x: 0, z: 0};
         let safe = false;
         let attempts = 0;
         
         while (!safe && attempts < 200) {
-            // Randomly scatter across the island, but mostly in front of the start area
             pos.x = (Math.random() - 0.5) * (MAP_SIZE - 60); 
             pos.z = (Math.random() - 0.5) * (MAP_SIZE - 60);
-            
-            // Don't spawn directly on top of the car's starting area
             if (Math.abs(pos.x) < 30 && Math.abs(pos.z) < 30) { attempts++; continue; }
             
             safe = true;
-            // Keep away from trees
-            for (let t of treesArray) {
-                if (Math.hypot(pos.x - t.mesh.position.x, pos.z - t.mesh.position.z) < 15) safe = false;
-            }
-            // Keep away from bulls
-            for (let b of bullsArray) {
-                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 25) safe = false;
-            }
-            // Keep away from other boards
-            for (let b of signboardsArray) {
-                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 20) safe = false;
-            }
+            for (let t of treesArray) if (Math.hypot(pos.x - t.mesh.position.x, pos.z - t.mesh.position.z) < 15) safe = false;
+            for (let b of bullsArray) if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 25) safe = false;
+            for (let b of signboardsArray) if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 20) safe = false;
             attempts++;
         }
         return pos;
@@ -311,7 +302,6 @@
         for(let i = 0; i < totalQuestions; i++) {
             answerSet.push({ text: islandQuestions[i].correctAnswer, qIndex: i });
         }
-        
         answerSet.sort(() => Math.random() - 0.5);
 
         for(let i = 0; i < answerSet.length && i < 10; i++) {
@@ -332,11 +322,9 @@
             currentIsland++;
             currentQuestion = 0;
             if (currentIsland >= 50) currentIsland = 0; 
-            
             loadIslandBoards();
             return;
         }
-        
         let qData = gameData[currentIsland][currentQuestion];
         document.getElementById('question-box').innerText = qData.question;
         document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
@@ -355,16 +343,38 @@
         }, 1500);
     }
 
+    // NEW: Double-Sided Board Logic
     function spawnBoard(text, color, qIndex, xPos, zPos) {
         const signData = createSignText(text, color);
         const g = new THREE.Group();
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); p.position.y = 5; g.add(p);
-        const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 2.5), signData.mats); b.position.set(0, 10 + (signData.h/2 - 5), 1.2); g.add(b);
+        
+        // 1. The Pole (Centered)
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); 
+        p.position.y = 5; 
+        g.add(p);
+        
+        // 2. The Solid Box (Centered on Pole)
+        const boxMat = new THREE.MeshStandardMaterial({color: color});
+        const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 1.0), boxMat); 
+        b.position.set(0, 10 + (signData.h/2 - 5), 0); 
+        g.add(b);
+
+        // 3. Text on FRONT side
+        const textMat = new THREE.MeshStandardMaterial({map: signData.tex});
+        const frontFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
+        frontFace.position.set(0, 10 + (signData.h/2 - 5), 0.51); // slightly popped out to prevent glitching
+        g.add(frontFace);
+
+        // 4. Text on BACK side (Rotated 180 degrees so it isn't backwards!)
+        const backFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
+        backFace.position.set(0, 10 + (signData.h/2 - 5), -0.51); 
+        backFace.rotation.y = Math.PI;
+        g.add(backFace);
+
         g.position.set(xPos, 0, zPos); scene.add(g);
         signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
-    // NEW: Advanced Input Handling for Steering vs Looking
     function handleInteractionStart(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
@@ -372,15 +382,17 @@
             document.getElementById('tap-indicator').style.display = 'none'; 
             
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
             let screenW = window.innerWidth;
 
             if (clientX < screenW * 0.3) {
-                activeSteering = 1; // Left 30% = Steer Left
+                activeSteering = 1; 
             } else if (clientX > screenW * 0.7) {
-                activeSteering = -1; // Right 30% = Steer Right
+                activeSteering = -1; 
             } else {
-                isLooking = true; // Middle 40% = Look Around
+                isLooking = true; 
                 lookStartX = clientX;
+                lookStartY = clientY; // Track Up/Down starting point
             }
         }
     }
@@ -389,16 +401,22 @@
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
         if (!isPaused && isLooking) {
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
             let deltaX = clientX - lookStartX;
-            // Pan the camera angle based on drag distance
+            let deltaY = clientY - lookStartY;
+            
+            // Map the screen drag to Camera Left/Right and Up/Down
             targetCamAngleOffset = -(deltaX / window.innerWidth) * Math.PI * 1.5; 
+            targetCamPitchOffset = -(deltaY / window.innerHeight) * Math.PI; 
         }
     }
 
     function handleInteractionEnd() {
         activeSteering = 0;
         isLooking = false;
-        targetCamAngleOffset = 0; // Release screen -> camera snaps back to center
+        targetCamAngleOffset = 0; 
+        targetCamPitchOffset = 0; // Release screen -> camera snaps back to center
     }
 
     window.addEventListener('touchstart', handleInteractionStart, {passive: false});
@@ -418,13 +436,13 @@
             
             // Smoothly animate the camera offset back to center or to the drag position
             camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
+            camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
             
             let speed = parseFloat(document.getElementById('speed-slider').value);
             
             if (isDriving) {
                 if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
 
-                // Apply Steering from Left/Right taps
                 if (activeSteering === 1) carGroup.rotation.y += 0.04;
                 else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
 
@@ -473,7 +491,6 @@
             }); 
             bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
-            // Calculate base rotation PLUS the user's manual look offset!
             const cy = carGroup.rotation.y + camAngleOffset; 
             
             if (cameraMode === 0) {
@@ -483,10 +500,13 @@
                     carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
                     carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
                 ), 0.1);
-                // Look exactly where the camera is rotated towards
+                
+                // NEW: Calculate Look target based on UP/DOWN drag
+                let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); 
+                
                 camera.lookAt(
                     carGroup.position.x - 20 * Math.sin(cy), 
-                    carGroup.position.y + 1, 
+                    lookY, 
                     carGroup.position.z - 20 * Math.cos(cy)
                 );
                 
