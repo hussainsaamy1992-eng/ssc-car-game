@@ -19,7 +19,7 @@
     
     #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
-    #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3);}
+    #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); transition: background 0.3s, color 0.3s; }
     
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
@@ -76,6 +76,13 @@
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
+    // NEW: 10-Board Layout Pattern
+    const boardPositions = [
+        {x: -60, z: -70}, {x: 0, z: -70}, {x: 60, z: -70},
+        {x: -90, z: -110}, {x: -30, z: -110}, {x: 30, z: -110}, {x: 90, z: -110},
+        {x: -60, z: -150}, {x: 0, z: -150}, {x: 60, z: -150}
+    ];
+    
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
     const clock = new THREE.Clock();
@@ -85,16 +92,13 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // --- ORBIT CONTROLS SETUP ---
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enabled = false; 
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    
-    // NEW: Physics limits to stop clipping and bad zooming
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // Blocks going under the grass
-    controls.minDistance = 8;    // Stops you from zooming into the car's body
-    controls.maxDistance = 150;  // Stops you from zooming too far into the sky
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+    controls.minDistance = 8;    
+    controls.maxDistance = 150;  
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
@@ -166,7 +170,8 @@
     function spawnDeco(m, s, r, arr) {
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
-        if(Math.abs(x)<60 && Math.abs(z)<60) return; 
+        // Keep the center and the board layout area free of trees!
+        if(Math.abs(x)<120 && z > -180 && z < 20) return; 
         d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
     }
@@ -188,7 +193,7 @@
         bullAudio.play().catch(e => console.log(e));
 
         gameStarted = true;
-        loadQuestionUI();
+        loadIslandBoards(); // NEW: Load all 10 boards at start
         animate();
     }
 
@@ -203,7 +208,6 @@
             engineAudio.pause();
             bullAudio.pause();
 
-            // Enable controls and target AHEAD of the car (closer to the boards)
             controls.enabled = true;
             controls.target.set(carGroup.position.x, 5, carGroup.position.z - 40); 
         } else {
@@ -226,7 +230,7 @@
         if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW";
     }
 
-    function createSignText(text, color, isCorrect) {
+    function createSignText(text, color) {
         const c = document.createElement('canvas'); const ctx = c.getContext('2d');
         const canvasWidth = 1024; const fontSize = 64;
         ctx.font = `bold ${fontSize}px 'Faruma', 'MV Boli', 'Noto Sans Thaana'`;
@@ -250,35 +254,80 @@
         lines.forEach((line, index) => { ctx.fillText(line, c.width / 2, startY + (index * (fontSize + 30))); });
         
         const tex = new THREE.CanvasTexture(c); const m = new THREE.MeshStandardMaterial({color: color});
-        return { mats: [m, m, m, m, new THREE.MeshStandardMaterial({map: tex}), m], w: 24, h: (canvasHeight / canvasWidth) * 24, isCorrect: isCorrect };
+        return { mats: [m, m, m, m, new THREE.MeshStandardMaterial({map: tex}), m], w: 24, h: (canvasHeight / canvasWidth) * 24 };
     }
 
-    function loadQuestionUI() {
+    // NEW: Function to load ALL 10 answers for the current Island
+    function loadIslandBoards() {
         signboardsArray.forEach(b => scene.remove(b.mesh));
         signboardsArray.length = 0;
 
+        let islandQuestions = gameData[currentIsland];
+        let totalQuestions = islandQuestions.length;
+        
+        // Grab answers and their original question index
+        let answerSet = [];
+        for(let i = 0; i < totalQuestions; i++) {
+            answerSet.push({ text: islandQuestions[i].correctAnswer, qIndex: i });
+        }
+        
+        // Shuffle the 10 answers randomly!
+        answerSet.sort(() => Math.random() - 0.5);
+
+        // Spawn them on the map
+        for(let i = 0; i < answerSet.length && i < 10; i++) {
+            let color = signColors[i % signColors.length];
+            let pos = boardPositions[i];
+            spawnBoard(answerSet[i].text, color, answerSet[i].qIndex, pos.x, pos.z);
+        }
+
+        // Reset car to origin and start asking questions
         carGroup.position.set(0,0,0);
         carGroup.rotation.set(0,0,0);
+        updateQuestionUI();
+    }
 
+    // NEW: Function to just update the text box at the top
+    function updateQuestionUI() {
+        if (currentQuestion >= gameData[currentIsland].length) {
+            // Island Beaten! Move to next island.
+            currentIsland++;
+            currentQuestion = 0;
+            if (currentIsland >= 50) currentIsland = 0; 
+            
+            // Load the new 10 boards
+            loadIslandBoards();
+            return;
+        }
+        
         let qData = gameData[currentIsland][currentQuestion];
         document.getElementById('question-box').innerText = qData.question;
         document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
-
-        let isLeftCorrect = Math.random() < 0.5;
-        let c1 = signColors[Math.floor(Math.random() * signColors.length)];
-        let c2 = signColors[(signColors.indexOf(c1) + 1) % signColors.length];
-
-        spawnBoard(isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", c1, isLeftCorrect, -30, -120);
-        spawnBoard(!isLeftCorrect ? qData.correctAnswer : "ނުބައި ޖަވާބު", c2, !isLeftCorrect, 30, -120);
+    }
+    
+    // NEW: Flash red if wrong
+    function showWrongAnswerUI() {
+        const qBox = document.getElementById('question-box');
+        qBox.innerText = "ނުބައި ޖަވާބު! (Wrong Answer!)";
+        qBox.style.background = "#e74c3c";
+        qBox.style.color = "white";
+        
+        setTimeout(() => {
+            qBox.innerText = gameData[currentIsland][currentQuestion].question;
+            qBox.style.background = "rgba(255,255,255,0.95)";
+            qBox.style.color = "black";
+        }, 1500);
     }
 
-    function spawnBoard(text, color, isCorrect, xPos, zPos) {
-        const signData = createSignText(text, color, isCorrect);
+    function spawnBoard(text, color, qIndex, xPos, zPos) {
+        const signData = createSignText(text, color);
         const g = new THREE.Group();
         const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); p.position.y = 5; g.add(p);
         const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 2.5), signData.mats); b.position.set(0, 10 + (signData.h/2 - 5), 1.2); g.add(b);
         g.position.set(xPos, 0, zPos); scene.add(g);
-        signboardsArray.push({ mesh: g, isCorrect: isCorrect });
+        
+        // Track the mesh and which question it actually answers
+        signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
     let isTouching = false, touchX = 0;
@@ -355,11 +404,7 @@
                     carGroup.position.y + 50, 
                     carGroup.position.z + 40 * Math.cos(cy)
                 ), 0.1);
-                camera.lookAt(
-                    carGroup.position.x - 20 * Math.sin(cy), 
-                    carGroup.position.y, 
-                    carGroup.position.z - 20 * Math.cos(cy)
-                );
+                camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), carGroup.position.y, carGroup.position.z - 20 * Math.cos(cy));
                 
             } else if (cameraMode === 2) {
                 const time = Date.now() * 0.0005; 
@@ -371,23 +416,43 @@
                 camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
             }
 
-            signboardsArray.forEach((board) => {
-                if (carGroup.position.distanceTo(board.mesh.position) < 8) {
-                    if (board.isCorrect) {
-                        currentQuestion++;
-                        if (currentQuestion >= 10) {
-                            currentIsland++;
-                            currentQuestion = 0;
-                            if (currentIsland >= 50) currentIsland = 0; 
-                        }
-                        loadQuestionUI();
+            // NEW: Collision logic for the 10-board layout
+            let hitIndex = -1;
+            let correctHit = false;
+
+            for (let i = 0; i < signboardsArray.length; i++) {
+                let board = signboardsArray[i];
+                if (carGroup.position.distanceTo(board.mesh.position) < 9) {
+                    if (board.qIndex === currentQuestion) {
+                        hitIndex = i;
+                        correctHit = true;
+                        break;
                     } else {
+                        // Hit the wrong board! Bounce back and show UI warning
                         carGroup.translateZ(15);
+                        showWrongAnswerUI();
                     }
                 }
-            });
+            }
+
+            // If we successfully hit the correct board:
+            if (correctHit) {
+                // Remove it from the 3D world
+                scene.remove(signboardsArray[hitIndex].mesh);
+                signboardsArray.splice(hitIndex, 1);
+                
+                // Progress the game
+                currentQuestion++;
+                
+                // Reset car to the start so they can aim at the remaining boards
+                carGroup.position.set(0,0,0);
+                carGroup.rotation.set(0,0,0);
+                
+                // Load the next question text
+                updateQuestionUI();
+            }
+
         } else {
-            // Manual Camera Control when Paused
             controls.update(); 
         }
 
