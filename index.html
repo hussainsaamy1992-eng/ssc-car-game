@@ -23,10 +23,13 @@
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
-    /* Moved Pause Button to Bottom Left */
-    #pause-btn { position: absolute; bottom: 20px; left: 20px; padding: 15px 20px; font-size: 18px; background: #e74c3c; color: white; border: 3px solid #c0392b; border-radius: 10px; cursor: pointer; font-weight: bold; z-index: 9999; display: none; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); font-family: Arial, sans-serif; }
+    /* NEW: Left Side Controls Container */
+    #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 10px; }
+    .control-btn { padding: 12px 15px; font-size: 16px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
+    #pause-btn { background: #e74c3c; border-bottom: 4px solid #c0392b; }
+    #cam-btn { background: #3498db; border-bottom: 4px solid #2980b9; }
     
-    /* NEW: Speed Slider UI on Bottom Right */
+    /* Speed Slider UI on Bottom Right */
     #speed-container { position: absolute; bottom: 20px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
@@ -48,10 +51,13 @@
     <div id="question-box">Loading...</div>
   </div>
 
-  <!-- Pause Button (Left) -->
-  <button id="pause-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
+  <!-- Left Side Buttons -->
+  <div id="left-controls">
+    <button id="pause-btn" class="control-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
+    <button id="cam-btn" class="control-btn" onclick="toggleCamera()" dir="ltr">🎥 ACTION</button>
+  </div>
 
-  <!-- Speed Slider (Right) -->
+  <!-- Speed Slider -->
   <div id="speed-container">
     <span class="speed-icon">🐰</span>
     <input type="range" id="speed-slider" min="0" max="2.5" step="0.1" value="1.0" orient="vertical" dir="ltr">
@@ -67,6 +73,7 @@
     let gameStarted = false;
     let isPaused = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
+    let cameraMode = 0; // NEW: 0 = Action, 1 = Drone, 2 = 360 Spin
     
     let engineAudio = document.getElementById('audio-engine');
     let bullAudio = document.getElementById('audio-bull');
@@ -164,7 +171,7 @@
     function startGameEngine() {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('ui-container').style.display = 'flex';
-        document.getElementById('pause-btn').style.display = 'block'; 
+        document.getElementById('left-controls').style.display = 'flex'; // Show buttons
         document.getElementById('speed-container').style.display = 'flex'; 
         
         engineAudio.volume = 1.0;
@@ -185,17 +192,24 @@
             btn.innerText = "▶ RESUME";
             btn.style.background = "#27ae60"; 
             btn.style.borderColor = "#2ecc71";
-            
             engineAudio.pause();
             bullAudio.pause();
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
-            
             engineAudio.play();
             bullAudio.play();
         }
+    }
+
+    // NEW: Camera Toggle Function
+    function toggleCamera() {
+        cameraMode = (cameraMode + 1) % 3;
+        const btn = document.getElementById('cam-btn');
+        if (cameraMode === 0) btn.innerHTML = "🎥 ACTION";
+        if (cameraMode === 1) btn.innerHTML = "🚁 DRONE";
+        if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW";
     }
 
     function createSignText(text, color, isCorrect) {
@@ -255,9 +269,8 @@
 
     let isTouching = false, touchX = 0;
     
-    // Ignore steering if tapping on the slider or button UI
     function handleInteractionStart(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; // Ignore steering if clicking buttons
         if (!isPaused) {
             isTouching = true;
             touchX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -271,9 +284,9 @@
         }
     }
 
-    window.addEventListener('touchstart', handleInteractionStart);
+    window.addEventListener('touchstart', handleInteractionStart, {passive: false});
     window.addEventListener('mousedown', handleInteractionStart);
-    window.addEventListener('touchmove', handleInteractionMove);
+    window.addEventListener('touchmove', handleInteractionMove, {passive: false});
     window.addEventListener('mousemove', handleInteractionMove);
     window.addEventListener('touchend', () => { isTouching = false; });
     window.addEventListener('mouseup', () => { isTouching = false; });
@@ -286,10 +299,8 @@
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
             
-            // Read Speed from the new UI Slider
             let speed = parseFloat(document.getElementById('speed-slider').value);
             
-            // Adjust Engine Sound Pitch based on Speed!
             if(engineAudio && speed > 0) {
                 engineAudio.playbackRate = 0.5 + (speed / 1.5);
             }
@@ -314,13 +325,42 @@
             bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
             const cy = carGroup.rotation.y;
-            const mPitch = 0.3; 
-            camera.position.lerp(new THREE.Vector3(
-                carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
-                carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
-                carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
-            ), 0.1);
-            camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
+            
+            // --- NEW: Dynamic Camera Modes ---
+            if (cameraMode === 0) {
+                // 🎥 ACTION VIEW (Classic 3rd Person)
+                const mPitch = 0.3; 
+                camera.position.lerp(new THREE.Vector3(
+                    carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
+                    carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
+                    carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
+                ), 0.1);
+                camera.lookAt(carGroup.position.x, carGroup.position.y + 1, carGroup.position.z);
+                
+            } else if (cameraMode === 1) {
+                // 🚁 DRONE VIEW (High Overview looking ahead)
+                camera.position.lerp(new THREE.Vector3(
+                    carGroup.position.x + 40 * Math.sin(cy), 
+                    carGroup.position.y + 50, 
+                    carGroup.position.z + 40 * Math.cos(cy)
+                ), 0.1);
+                // Look 20 units ahead of the car to see the boards!
+                camera.lookAt(
+                    carGroup.position.x - 20 * Math.sin(cy), 
+                    carGroup.position.y, 
+                    carGroup.position.z - 20 * Math.cos(cy)
+                );
+                
+            } else if (cameraMode === 2) {
+                // 🔄 360 VIEW (Spins around the car)
+                const time = Date.now() * 0.0005; 
+                camera.position.lerp(new THREE.Vector3(
+                    carGroup.position.x + 40 * Math.sin(time), 
+                    carGroup.position.y + 20, 
+                    carGroup.position.z + 40 * Math.cos(time)
+                ), 0.1);
+                camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
+            }
 
             signboardsArray.forEach((board) => {
                 if (carGroup.position.distanceTo(board.mesh.position) < 8) {
