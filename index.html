@@ -83,8 +83,6 @@
     let lookStartY = 0;
     let camAngleOffset = 0;
     let targetCamAngleOffset = 0;
-    
-    // NEW: Vertical camera pitch variables
     let camPitchOffset = 0;
     let targetCamPitchOffset = 0;
 
@@ -145,12 +143,14 @@
                 carGroup.add(myCar);
             }
 
+            // Spawn Trees safely
             if(t1) for(let i=0; i<25; i++) spawnDeco(t1.scene, 5, 7, treesArray);
             if(t2) for(let i=0; i<25; i++) spawnDeco(t2.scene, 5, 7, treesArray);
             if(f1) for(let i=0; i<50; i++) spawnDeco(f1.scene, 2, 0, null);
 
+            // FIX 1: Bulls pushed completely out of the playing arena (x=160, -160)
             if(bullG) { 
-                [140, -140].forEach(x => { 
+                [160, -160].forEach(x => { 
                     const b = THREE.SkeletonUtils.clone(bullG.scene); 
                     b.position.set(x, 0, -60); b.scale.set(6,6,6); scene.add(b); 
                     bullsArray.push({mesh:b, radius:12}); 
@@ -180,7 +180,10 @@
     function spawnDeco(m, s, r, arr) {
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
-        if(Math.abs(x) < 40 && Math.abs(z) < 40) return; 
+        
+        // FIX 2: Strict Exclusion Zone. Trees CANNOT spawn inside a 260x260 square in the center.
+        // This guarantees the middle of the map is just empty grass!
+        if(Math.abs(x) < 130 && Math.abs(z) < 130) return; 
         
         d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
@@ -244,7 +247,6 @@
         if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW";
     }
 
-    // NEW: Modified to return Texture directly for Double-Sided placement
     function createSignText(text, color) {
         const c = document.createElement('canvas'); const ctx = c.getContext('2d');
         const canvasWidth = 1024; const fontSize = 64;
@@ -272,21 +274,29 @@
         return { tex: tex, color: color, w: 24, h: (canvasHeight / canvasWidth) * 24 };
     }
 
+    // FIX 3: Bulletproof Board Spawning
     function getSafeBoardPosition() {
         let pos = {x: 0, z: 0};
         let safe = false;
-        let attempts = 0;
         
-        while (!safe && attempts < 200) {
-            pos.x = (Math.random() - 0.5) * (MAP_SIZE - 60); 
-            pos.z = (Math.random() - 0.5) * (MAP_SIZE - 60);
-            if (Math.abs(pos.x) < 30 && Math.abs(pos.z) < 30) { attempts++; continue; }
+        // This forces the game to keep generating coordinates until it finds a 100% safe spot
+        while (!safe) { 
+            // Only spawn inside the Safe Zone (x: -110 to 110)
+            pos.x = (Math.random() - 0.5) * 220; 
+            pos.z = (Math.random() - 0.5) * 220;
+            
+            // Do not spawn immediately next to the car's starting point
+            if (Math.abs(pos.x) < 40 && Math.abs(pos.z) < 40) continue; 
             
             safe = true;
-            for (let t of treesArray) if (Math.hypot(pos.x - t.mesh.position.x, pos.z - t.mesh.position.z) < 15) safe = false;
-            for (let b of bullsArray) if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 25) safe = false;
-            for (let b of signboardsArray) if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 20) safe = false;
-            attempts++;
+            
+            // Boards must be AT LEAST 40 meters away from every other board
+            for (let b of signboardsArray) {
+                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 40) {
+                    safe = false;
+                    break;
+                }
+            }
         }
         return pos;
     }
@@ -343,29 +353,24 @@
         }, 1500);
     }
 
-    // NEW: Double-Sided Board Logic
     function spawnBoard(text, color, qIndex, xPos, zPos) {
         const signData = createSignText(text, color);
         const g = new THREE.Group();
         
-        // 1. The Pole (Centered)
         const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); 
         p.position.y = 5; 
         g.add(p);
         
-        // 2. The Solid Box (Centered on Pole)
         const boxMat = new THREE.MeshStandardMaterial({color: color});
         const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 1.0), boxMat); 
         b.position.set(0, 10 + (signData.h/2 - 5), 0); 
         g.add(b);
 
-        // 3. Text on FRONT side
         const textMat = new THREE.MeshStandardMaterial({map: signData.tex});
         const frontFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
-        frontFace.position.set(0, 10 + (signData.h/2 - 5), 0.51); // slightly popped out to prevent glitching
+        frontFace.position.set(0, 10 + (signData.h/2 - 5), 0.51); 
         g.add(frontFace);
 
-        // 4. Text on BACK side (Rotated 180 degrees so it isn't backwards!)
         const backFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
         backFace.position.set(0, 10 + (signData.h/2 - 5), -0.51); 
         backFace.rotation.y = Math.PI;
@@ -392,7 +397,7 @@
             } else {
                 isLooking = true; 
                 lookStartX = clientX;
-                lookStartY = clientY; // Track Up/Down starting point
+                lookStartY = clientY; 
             }
         }
     }
@@ -406,7 +411,6 @@
             let deltaX = clientX - lookStartX;
             let deltaY = clientY - lookStartY;
             
-            // Map the screen drag to Camera Left/Right and Up/Down
             targetCamAngleOffset = -(deltaX / window.innerWidth) * Math.PI * 1.5; 
             targetCamPitchOffset = -(deltaY / window.innerHeight) * Math.PI; 
         }
@@ -416,7 +420,7 @@
         activeSteering = 0;
         isLooking = false;
         targetCamAngleOffset = 0; 
-        targetCamPitchOffset = 0; // Release screen -> camera snaps back to center
+        targetCamPitchOffset = 0; 
     }
 
     window.addEventListener('touchstart', handleInteractionStart, {passive: false});
@@ -434,7 +438,6 @@
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
             
-            // Smoothly animate the camera offset back to center or to the drag position
             camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
             camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
             
@@ -501,14 +504,8 @@
                     carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
                 ), 0.1);
                 
-                // NEW: Calculate Look target based on UP/DOWN drag
                 let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); 
-                
-                camera.lookAt(
-                    carGroup.position.x - 20 * Math.sin(cy), 
-                    lookY, 
-                    carGroup.position.z - 20 * Math.cos(cy)
-                );
+                camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), lookY, carGroup.position.z - 20 * Math.cos(cy));
                 
             } else if (cameraMode === 1) {
                 camera.position.lerp(new THREE.Vector3(
