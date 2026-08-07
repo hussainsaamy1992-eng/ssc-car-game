@@ -7,7 +7,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
-  <!-- NEW: OrbitControls for zooming and panning while paused -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,7 +36,6 @@
 </head>
 <body>
 
-  <!-- Native HTML5 Audio Elements -->
   <audio id="audio-engine" src="https://hussainsaamy.github.io/game-assets/sound.mp3" loop preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
@@ -87,11 +85,16 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // NEW: Initialize OrbitControls for the pause menu
+    // --- ORBIT CONTROLS SETUP ---
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enabled = false; // Keep disabled until paused
+    controls.enabled = false; 
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    
+    // NEW: Physics limits to stop clipping and bad zooming
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // Blocks going under the grass
+    controls.minDistance = 8;    // Stops you from zooming into the car's body
+    controls.maxDistance = 150;  // Stops you from zooming too far into the sky
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
@@ -200,9 +203,9 @@
             engineAudio.pause();
             bullAudio.pause();
 
-            // NEW: Enable Free Camera Control when Paused
+            // Enable controls and target AHEAD of the car (closer to the boards)
             controls.enabled = true;
-            controls.target.copy(carGroup.position); // Focus controls around the car
+            controls.target.set(carGroup.position.x, 5, carGroup.position.z - 40); 
         } else {
             btn.innerText = "⏸ PAUSE";
             btn.style.background = "#e74c3c"; 
@@ -211,7 +214,6 @@
             engineAudio.play();
             bullAudio.play();
 
-            // NEW: Disable Free Camera when unpaused
             controls.enabled = false;
         }
     }
@@ -296,7 +298,6 @@
         }
     }
 
-    // Passive false is needed so touch controls don't fight with the OrbitControls
     window.addEventListener('touchstart', handleInteractionStart, {passive: false});
     window.addEventListener('mousedown', handleInteractionStart);
     window.addEventListener('touchmove', handleInteractionMove, {passive: false});
@@ -309,7 +310,6 @@
         requestAnimationFrame(animate);
         
         if (!isPaused) {
-            // GAME IS RUNNING - Auto Camera & Physics
             const delta = clock.getDelta(); 
             mixers.forEach(m => m.update(delta)); 
             
@@ -387,7 +387,7 @@
                 }
             });
         } else {
-            // GAME IS PAUSED - Manual Camera Control
+            // Manual Camera Control when Paused
             controls.update(); 
         }
 
