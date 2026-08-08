@@ -36,8 +36,8 @@
     #tap-indicator { position: absolute; top: 60%; width: 100%; text-align: center; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 50; animation: blink 1.5s infinite; pointer-events: none; display: none; }
     @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.2;} 100% {opacity: 1;} }
 
-    #map-overlay { position: absolute; top: 15px; width: 100%; text-align: center; color: white; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 100; display: none; pointer-events: none; }
-    #map-overlay span { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 15px; border: 2px solid gold; }
+    #map-overlay { position: absolute; top: 15px; width: 100%; text-align: center; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 100; display: none; pointer-events: none; }
+    #map-overlay span { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 15px; border: 2px solid #3498db; }
   </style>
 </head>
 <body>
@@ -46,11 +46,11 @@
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
   <div id="loading-screen">
-    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building 3D Ocean...</span>
+    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building 3D Atoll...</span>
     <button id="start-btn" onclick="openMap()">OPEN MAP</button>
   </div>
 
-  <div id="map-overlay"><span>🗺️ Tap an Island to Play!</span></div>
+  <div id="map-overlay"><span>🗺️ Double-Tap a Flag to Play!</span></div>
 
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
@@ -76,7 +76,6 @@
     let gameData = [];
     let completedIslands = new Array(50).fill(false);
     
-    // Application States: 'LOADING', 'MAP', 'PLAYING'
     let appState = 'LOADING'; 
 
     let currentIsland = 0;
@@ -103,21 +102,23 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
     const clock = new THREE.Clock();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 8000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
-    // DUAL WORLDS: One for the Map, one for the Game
     const gameGroup = new THREE.Group(); scene.add(gameGroup);
     const mapGroup = new THREE.Group(); scene.add(mapGroup);
     
-    // Arrays for logic
     const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
-    let islandHitboxes = []; // Used for tapping 3D islands
+    
+    // Arrays for Map
+    let islandMapPositions = [];
+    let flagHitboxes = []; // Sprites that we raycast against
 
-    // 3D Raycaster for tapping islands
+    // Double Tap Logic
+    let lastTapTime = 0;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -140,7 +141,6 @@
             const data = await res.json();
             if (data.success) gameData = data.islands;
 
-            // Load all 3D assets
             const [carG, t1, t2, f1, bullG, fenceG, islandG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
@@ -151,7 +151,7 @@
                 loadModel('https://hussainsaamy.github.io/game-assets/Island.glb')
             ]);
 
-            // --- SETUP GAME WORLD (gameGroup) ---
+            // --- GAME WORLD ---
             const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
             grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(50, 50);
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: grassTex}));
@@ -187,42 +187,47 @@
                 }
             }
 
-            // --- SETUP 3D MAP WORLD (mapGroup) ---
-            // 1. The Ocean
+            // --- 3D MAP WORLD (Atoll Generator) ---
             const ocean = new THREE.Mesh(
-                new THREE.PlaneGeometry(3000, 3000), 
+                new THREE.PlaneGeometry(10000, 10000), 
                 new THREE.MeshStandardMaterial({color: 0x0a5e9e, roughness: 0.1, metalness: 0.3})
             );
             ocean.rotation.x = -Math.PI/2; 
             mapGroup.add(ocean);
 
-            // 2. Clone the Island.glb 50 times in a winding path
             const totalIslands = Math.min(50, gameData.length);
             if(islandG) {
                 for(let i=0; i < totalIslands; i++) {
-                    const iMesh = THREE.SkeletonUtils.clone(islandG.scene);
+                    let pos = new THREE.Vector3();
+                    let safe = false;
+                    let attempts = 0;
                     
-                    // Winding Math: Zig-zags on X, steadily moves forward on Z
-                    let posX = Math.sin(i * 0.8) * 120;
-                    let posZ = -i * 100; 
+                    // Generate a massive random ring (Atoll shape)
+                    while(!safe && attempts < 1000) {
+                        let angle = Math.random() * Math.PI * 2;
+                        let radius = 600 + (Math.random() * 500); // Massive ring
+                        pos.x = Math.cos(angle) * radius;
+                        pos.z = Math.sin(angle) * radius;
+                        
+                        safe = true;
+                        // Ensure it's AT LEAST 250 units away from all other islands!
+                        for(let j=0; j < islandMapPositions.length; j++) {
+                            if(pos.distanceTo(islandMapPositions[j]) < 250) {
+                                safe = false; break;
+                            }
+                        }
+                        attempts++;
+                    }
                     
-                    iMesh.position.set(posX, 0, posZ);
-                    iMesh.scale.set(2, 2, 2); // Smaller for the map view
-                    mapGroup.add(iMesh);
+                    islandMapPositions.push(pos);
 
-                    // Create Invisible Hitbox for Raycasting (Clicking)
-                    const hitBox = new THREE.Mesh(
-                        new THREE.BoxGeometry(40, 20, 40), 
-                        new THREE.MeshBasicMaterial({visible: false})
-                    );
-                    hitBox.position.set(posX, 10, posZ);
-                    hitBox.userData = { islandIndex: i }; // Store the ID!
-                    mapGroup.add(hitBox);
-                    islandHitboxes.push(hitBox);
+                    const iMesh = THREE.SkeletonUtils.clone(islandG.scene);
+                    iMesh.position.copy(pos);
+                    iMesh.scale.set(2, 2, 2); 
+                    mapGroup.add(iMesh);
                 }
             }
 
-            // Hide Game world initially
             gameGroup.visible = false;
             
             document.getElementById('load-text').innerText = "World Ready!";
@@ -237,7 +242,6 @@
         const d = m.clone(); 
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
         if(Math.abs(x) < 130 && Math.abs(z) < 130) return; 
-        
         d.position.set(x, 0, z); d.scale.set(s,s,s); gameGroup.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
     }
@@ -246,41 +250,61 @@
         const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); gameGroup.add(f); 
     }
 
-    // --- 3D SPRITE LABELS ---
-    // Creates the floating "1", "2 🏆" text over islands
-    function generateMapLabels() {
-        // Clear old sprites if updating
-        mapGroup.children = mapGroup.children.filter(child => child.type !== 'Sprite');
+    // --- GOOGLE MAPS PINS (Flags) ---
+    function generateMapPins() {
+        // Clear old pins
+        flagHitboxes.forEach(f => mapGroup.remove(f.parent));
+        flagHitboxes = [];
         
-        const totalIslands = Math.min(50, gameData.length);
-        for(let i=0; i < totalIslands; i++) {
+        for(let i=0; i < islandMapPositions.length; i++) {
             let isDone = completedIslands[i];
-            let posX = Math.sin(i * 0.8) * 120;
-            let posZ = -i * 100;
+            let pos = islandMapPositions[i];
             
+            // 1. Create the Flag Pole
+            const pole = new THREE.Mesh(
+                new THREE.CylinderGeometry(2, 2, 80),
+                new THREE.MeshBasicMaterial({color: 0xffffff})
+            );
+            pole.position.set(pos.x, 40, pos.z);
+            
+            // 2. Create the Location Pin / Flag
             const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 128;
+            canvas.width = 128; canvas.height = 128;
             const ctx = canvas.getContext('2d');
             
-            ctx.fillStyle = isDone ? "gold" : "white";
-            ctx.font = "bold 70px Arial";
+            ctx.fillStyle = isDone ? "#f1c40f" : "#e74c3c"; // Gold if done, Red if new
+            ctx.beginPath();
+            ctx.arc(64, 64, 50, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = "white";
+            ctx.stroke();
+            
+            ctx.fillStyle = "white";
+            ctx.font = "bold 50px Arial";
             ctx.textAlign = "center";
-            ctx.fillText((i + 1) + (isDone ? " 🏆" : ""), 128, 80);
+            ctx.textBaseline = "middle";
+            ctx.fillText(i + 1, 64, 64);
             
             const tex = new THREE.CanvasTexture(canvas);
             const spriteMat = new THREE.SpriteMaterial({map: tex, depthTest: false});
             const sprite = new THREE.Sprite(spriteMat);
             
-            sprite.position.set(posX, 20, posZ);
-            sprite.scale.set(30, 15, 1);
+            sprite.scale.set(70, 70, 1);
+            sprite.position.set(pos.x, 100, pos.z);
+            sprite.userData = { islandIndex: i }; // Attach ID to the Sprite!
+            
+            mapGroup.add(pole);
             mapGroup.add(sprite);
+            
+            // Add Sprite to hitboxes for raycasting
+            flagHitboxes.push(sprite);
         }
     }
 
     function openMap() {
         document.getElementById('loading-screen').style.display = 'none';
         
-        // Hide Game UI
         document.getElementById('ui-container').style.display = 'none';
         document.getElementById('left-controls').style.display = 'none';
         document.getElementById('speed-container').style.display = 'none';
@@ -291,46 +315,64 @@
         bullAudio.pause();
         isDriving = false;
 
-        // Show Map World, Hide Game World
         gameGroup.visible = false;
         mapGroup.visible = true;
         appState = 'MAP';
 
-        generateMapLabels(); // Draw current trophies
+        generateMapPins();
 
-        // Set Drone Camera for Map
-        camera.position.set(0, 300, 150);
+        // Position Drone Camera
+        camera.position.set(0, 1500, 1000);
         camera.lookAt(0, 0, 0);
         
+        // GOOGLE MAPS CONTROLS SETUP
         controls.enabled = true;
+        controls.enablePan = true;
+        // 1-Finger Pan, 2-Finger Zoom/Rotate (Just like Google Maps)
+        controls.touches = {
+            ONE: THREE.TOUCH.PAN,
+            TWO: THREE.TOUCH.DOLLY_ROTATE
+        };
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.PAN,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.ROTATE
+        };
+        
         controls.target.set(0, 0, 0);
-        controls.maxPolarAngle = Math.PI / 2.2; // Don't go under ocean
-        controls.minDistance = 50;
-        controls.maxDistance = 600;
+        controls.maxPolarAngle = Math.PI / 2.2; 
+        controls.minDistance = 100;
+        controls.maxDistance = 3000; // Let them zoom out far
 
         if (appState !== 'PLAYING') {
             animate(); 
         }
     }
 
-    // --- RAYCASTER (Detecting 3D Island Taps) ---
+    // --- DOUBLE-TAP RAYCASTER ---
     function onPointerDown(event) {
         if(appState !== 'MAP') return;
         
-        // Convert screen tap to 3D coordinate
-        let clientX = event.touches ? event.touches[0].clientX : event.clientX;
-        let clientY = event.touches ? event.touches[0].clientY : event.clientY;
-        
-        mouse.x = (clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-        
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Check if laser hits an island hitbox
-        const intersects = raycaster.intersectObjects(islandHitboxes);
-        if (intersects.length > 0) {
-            const selectedID = intersects[0].object.userData.islandIndex;
-            selectIsland(selectedID);
+        let currentTime = new Date().getTime();
+        let tapLength = currentTime - lastTapTime;
+        lastTapTime = currentTime;
+
+        // Ensure it's a fast double tap (< 400ms)
+        if(tapLength < 400 && tapLength > 0) {
+            let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Only check if we hit the flags
+            const intersects = raycaster.intersectObjects(flagHitboxes);
+            if (intersects.length > 0) {
+                const selectedID = intersects[0].object.userData.islandIndex;
+                selectIsland(selectedID);
+            }
         }
     }
     window.addEventListener('pointerdown', onPointerDown);
@@ -340,7 +382,6 @@
         currentIsland = index;
         currentQuestion = 0;
         
-        // Switch Worlds
         appState = 'PLAYING';
         mapGroup.visible = false;
         gameGroup.visible = true;
@@ -358,7 +399,7 @@
 
         isDriving = false; 
         isPaused = false;
-        cameraMode = 0; // Reset to action cam
+        cameraMode = 0; 
         controls.enabled = false;
         
         loadIslandBoards(); 
@@ -375,7 +416,9 @@
             engineAudio.pause();
             bullAudio.pause();
 
+            // Re-enable simple rotation for pause menu
             controls.enabled = true;
+            controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             controls.target.set(carGroup.position.x, 5, carGroup.position.z - 20); 
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
@@ -475,7 +518,7 @@
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
             completedIslands[currentIsland] = true;
-            openMap(); // RETURN TO 3D MAP!
+            openMap(); 
             return;
         }
         
@@ -526,7 +569,7 @@
     }
 
     function handleInteractionStart(e) {
-        if(appState !== 'PLAYING') return; // Ignore if on map
+        if(appState !== 'PLAYING') return; 
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
             isDriving = true; 
@@ -583,14 +626,12 @@
         const delta = clock.getDelta(); 
         mixers.forEach(m => m.update(delta)); 
         
-        // --- MAP WORLD LOGIC ---
         if (appState === 'MAP') {
             controls.update(); 
             renderer.render(scene, camera);
             return;
         }
 
-        // --- GAME WORLD LOGIC ---
         if (appState === 'PLAYING') {
             if (!isPaused) {
                 camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
