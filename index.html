@@ -139,19 +139,29 @@
             const data = await res.json();
             if (data.success) gameData = data.islands;
 
-            const tex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(50, 50);
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: tex}));
-            ground.rotation.x = -Math.PI/2; scene.add(ground);
-
-            const [carG, t1, t2, f1, bullG, fenceG] = await Promise.all([
+            // NEW: Added Island.glb to the downloads!
+            const [carG, t1, t2, f1, bullG, fenceG, customIslandG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
-                loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb')
+                loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Island.glb')
             ]);
+
+            // Load Custom Island (Or fallback to flat grass if it fails)
+            if (customIslandG) {
+                const myIsland = customIslandG.scene;
+                myIsland.scale.set(4, 4, 4); // Scale up to match the 400x400 map
+                myIsland.position.set(0, -0.5, 0); // Lowered slightly so car tires don't sink
+                scene.add(myIsland);
+            } else {
+                const tex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(50, 50);
+                const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: tex}));
+                ground.rotation.x = -Math.PI/2; scene.add(ground);
+            }
 
             if(carG) {
                 const myCar = carG.scene;
@@ -521,9 +531,6 @@
 
                 for (let i = 0; i < signboardsArray.length; i++) {
                     let board = signboardsArray[i];
-                    
-                    // FIX: Precision hit detection! Changed radius from 9 down to 4.5.
-                    // This forces the player to ram the physical stick, not just brush past the wide text board.
                     if (carGroup.position.distanceTo(board.mesh.position) < 4.5) {
                         if (board.qIndex === currentQuestion) {
                             hitIndex = i;
