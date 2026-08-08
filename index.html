@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thaana:wght@700&display=swap" rel="stylesheet">
 
   <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #1a1a1a; touch-action: none; font-family: 'Faruma', 'MV Boli', 'Noto Sans Thaana', sans-serif !important; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0a5e9e; touch-action: none; font-family: 'Faruma', 'MV Boli', 'Noto Sans Thaana', sans-serif !important; }
     canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1;}
     
     #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
@@ -36,35 +36,8 @@
     #tap-indicator { position: absolute; top: 60%; width: 100%; text-align: center; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 50; animation: blink 1.5s infinite; pointer-events: none; display: none; }
     @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.2;} 100% {opacity: 1;} }
 
-    /* Map Screen with New Top-Down Island CSS */
-    #map-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 300; background: linear-gradient(#0077be, #00bfff); display: none; flex-direction: column; overflow: hidden; touch-action: auto;}
-    #map-header { background: rgba(0,0,0,0.8); color: gold; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; border-bottom: 3px solid gold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 310; }
-    #map-scroll-area { flex: 1; overflow-y: scroll; position: relative; width: 100%; }
-    
-    /* NEW: Organic Island Shape with Jungle & Sandy Beaches! */
-    .island-node { 
-        position: absolute; 
-        width: 85px; 
-        height: 85px; 
-        border-radius: 45% 55% 40% 60% / 55% 45% 60% 40%; /* Makes an uneven blob shape! */
-        background: radial-gradient(ellipse at center, #27ae60 30%, #f1c40f 80%, #d4ac0d 100%); 
-        color: black; 
-        font-size: 28px; 
-        font-weight: bold; 
-        cursor: pointer; 
-        box-shadow: 0px 8px 15px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.3); 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        z-index: 2; 
-        border: none;
-        transition: transform 0.2s; 
-        font-family: 'Arial'; 
-        text-shadow: 1px 1px 2px white;
-    }
-    .island-node:active { transform: scale(0.9); }
-    .island-node.completed { box-shadow: 0px 0px 20px gold, 0px 8px 15px rgba(0,0,0,0.6); border: 3px solid gold; }
-    .trophy-icon { position: absolute; top: -25px; font-size: 35px; text-shadow: 0px 2px 4px rgba(0,0,0,0.5); }
+    #map-overlay { position: absolute; top: 15px; width: 100%; text-align: center; color: white; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 100; display: none; pointer-events: none; }
+    #map-overlay span { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 15px; border: 2px solid gold; }
   </style>
 </head>
 <body>
@@ -73,14 +46,11 @@
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
   <div id="loading-screen">
-    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building Worlds...</span>
+    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building 3D Ocean...</span>
     <button id="start-btn" onclick="openMap()">OPEN MAP</button>
   </div>
 
-  <div id="map-screen">
-    <div id="map-header">🗺️ ރަށްތައް (Island Map)</div>
-    <div id="map-scroll-area"></div>
-  </div>
+  <div id="map-overlay"><span>🗺️ Tap an Island to Play!</span></div>
 
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
@@ -106,9 +76,11 @@
     let gameData = [];
     let completedIslands = new Array(50).fill(false);
     
+    // Application States: 'LOADING', 'MAP', 'PLAYING'
+    let appState = 'LOADING'; 
+
     let currentIsland = 0;
     let currentQuestion = 0;
-    let gameStarted = false;
     let isPaused = false; 
     let isDriving = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
@@ -137,19 +109,27 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
+    // DUAL WORLDS: One for the Map, one for the Game
+    const gameGroup = new THREE.Group(); scene.add(gameGroup);
+    const mapGroup = new THREE.Group(); scene.add(mapGroup);
+    
+    // Arrays for logic
+    const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
+    let islandHitboxes = []; // Used for tapping 3D islands
+
+    // 3D Raycaster for tapping islands
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enabled = false; 
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; 
-    controls.minDistance = 8;    
-    controls.maxDistance = 150;  
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
 
-    const carGroup = new THREE.Group(); scene.add(carGroup);
-    const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
+    const carGroup = new THREE.Group(); gameGroup.add(carGroup);
     const gltfLoader = new THREE.GLTFLoader();
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
@@ -160,20 +140,22 @@
             const data = await res.json();
             if (data.success) gameData = data.islands;
 
-            // Restored the grass plane!
-            const tex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(50, 50);
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: tex}));
-            ground.rotation.x = -Math.PI/2; scene.add(ground);
-
-            const [carG, t1, t2, f1, bullG, fenceG] = await Promise.all([
+            // Load all 3D assets
+            const [carG, t1, t2, f1, bullG, fenceG, islandG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
-                loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb')
+                loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb'),
+                loadModel('https://hussainsaamy.github.io/game-assets/Island.glb')
             ]);
+
+            // --- SETUP GAME WORLD (gameGroup) ---
+            const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+            grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(50, 50);
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: grassTex}));
+            ground.rotation.x = -Math.PI/2; gameGroup.add(ground);
 
             if(carG) {
                 const myCar = carG.scene;
@@ -188,7 +170,7 @@
             if(bullG) { 
                 [160, -160].forEach(x => { 
                     const b = THREE.SkeletonUtils.clone(bullG.scene); 
-                    b.position.set(x, 0, -60); b.scale.set(6,6,6); scene.add(b); 
+                    b.position.set(x, 0, -60); b.scale.set(6,6,6); gameGroup.add(b); 
                     bullsArray.push({mesh:b, radius:12}); 
                     if(bullG.animations.length){ 
                         const m = new THREE.AnimationMixer(b); 
@@ -205,6 +187,44 @@
                 }
             }
 
+            // --- SETUP 3D MAP WORLD (mapGroup) ---
+            // 1. The Ocean
+            const ocean = new THREE.Mesh(
+                new THREE.PlaneGeometry(3000, 3000), 
+                new THREE.MeshStandardMaterial({color: 0x0a5e9e, roughness: 0.1, metalness: 0.3})
+            );
+            ocean.rotation.x = -Math.PI/2; 
+            mapGroup.add(ocean);
+
+            // 2. Clone the Island.glb 50 times in a winding path
+            const totalIslands = Math.min(50, gameData.length);
+            if(islandG) {
+                for(let i=0; i < totalIslands; i++) {
+                    const iMesh = THREE.SkeletonUtils.clone(islandG.scene);
+                    
+                    // Winding Math: Zig-zags on X, steadily moves forward on Z
+                    let posX = Math.sin(i * 0.8) * 120;
+                    let posZ = -i * 100; 
+                    
+                    iMesh.position.set(posX, 0, posZ);
+                    iMesh.scale.set(2, 2, 2); // Smaller for the map view
+                    mapGroup.add(iMesh);
+
+                    // Create Invisible Hitbox for Raycasting (Clicking)
+                    const hitBox = new THREE.Mesh(
+                        new THREE.BoxGeometry(40, 20, 40), 
+                        new THREE.MeshBasicMaterial({visible: false})
+                    );
+                    hitBox.position.set(posX, 10, posZ);
+                    hitBox.userData = { islandIndex: i }; // Store the ID!
+                    mapGroup.add(hitBox);
+                    islandHitboxes.push(hitBox);
+                }
+            }
+
+            // Hide Game world initially
+            gameGroup.visible = false;
+            
             document.getElementById('load-text').innerText = "World Ready!";
             document.getElementById('start-btn').style.display = 'block';
 
@@ -218,71 +238,114 @@
         const x = (Math.random()-0.5)*MAP_SIZE, z = (Math.random()-0.5)*MAP_SIZE;
         if(Math.abs(x) < 130 && Math.abs(z) < 130) return; 
         
-        d.position.set(x, 0, z); d.scale.set(s,s,s); scene.add(d); 
+        d.position.set(x, 0, z); d.scale.set(s,s,s); gameGroup.add(d); 
         if(arr) arr.push({mesh:d, radius:r});
     }
 
     function addF(m, x, z, r) { 
-        const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); scene.add(f); 
+        const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); gameGroup.add(f); 
+    }
+
+    // --- 3D SPRITE LABELS ---
+    // Creates the floating "1", "2 🏆" text over islands
+    function generateMapLabels() {
+        // Clear old sprites if updating
+        mapGroup.children = mapGroup.children.filter(child => child.type !== 'Sprite');
+        
+        const totalIslands = Math.min(50, gameData.length);
+        for(let i=0; i < totalIslands; i++) {
+            let isDone = completedIslands[i];
+            let posX = Math.sin(i * 0.8) * 120;
+            let posZ = -i * 100;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = isDone ? "gold" : "white";
+            ctx.font = "bold 70px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText((i + 1) + (isDone ? " 🏆" : ""), 128, 80);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({map: tex, depthTest: false});
+            const sprite = new THREE.Sprite(spriteMat);
+            
+            sprite.position.set(posX, 20, posZ);
+            sprite.scale.set(30, 15, 1);
+            mapGroup.add(sprite);
+        }
     }
 
     function openMap() {
         document.getElementById('loading-screen').style.display = 'none';
         
+        // Hide Game UI
         document.getElementById('ui-container').style.display = 'none';
         document.getElementById('left-controls').style.display = 'none';
         document.getElementById('speed-container').style.display = 'none';
         document.getElementById('tap-indicator').style.display = 'none';
+        document.getElementById('map-overlay').style.display = 'block';
         
         engineAudio.pause();
         bullAudio.pause();
         isDriving = false;
-        
-        generateMapUI();
-        document.getElementById('map-screen').style.display = 'flex';
-    }
 
-    function generateMapUI() {
-        const mapArea = document.getElementById('map-scroll-area');
-        mapArea.innerHTML = '';
-        
-        const totalIslands = Math.min(50, gameData.length);
-        const verticalSpacing = 130; // Spaced them out slightly more
-        let svgLines = `<svg style="position:absolute; top:0; left:0; width:100%; height:${(totalIslands * verticalSpacing) + 100}px; z-index:0;">`;
+        // Show Map World, Hide Game World
+        gameGroup.visible = false;
+        mapGroup.visible = true;
+        appState = 'MAP';
 
-        for(let i = 0; i < totalIslands; i++) {
-            let isDone = completedIslands[i];
-            
-            let xPos = 50 + Math.sin(i * 0.7) * 30; 
-            let yPos = 50 + (i * verticalSpacing);
-            
-            if (i < totalIslands - 1) {
-                let nextX = 50 + Math.sin((i+1) * 0.7) * 30;
-                let nextY = 50 + ((i+1) * verticalSpacing);
-                svgLines += `<line x1="${xPos}%" y1="${yPos}px" x2="${nextX}%" y2="${nextY}px" stroke="#8B4513" stroke-width="8" stroke-dasharray="10,5" />`;
-            }
-            
-            let btn = document.createElement('button');
-            btn.className = `island-node ${isDone ? 'completed' : ''}`;
-            btn.style.left = `calc(${xPos}% - 42px)`; // Center the new 85px width
-            btn.style.top = `${yPos - 42}px`;
-            
-            let content = `<span>${i+1}</span>`;
-            if (isDone) content += '<div class="trophy-icon">🏆</div>';
-            
-            btn.innerHTML = content;
-            btn.onclick = () => selectIsland(i);
-            mapArea.appendChild(btn);
+        generateMapLabels(); // Draw current trophies
+
+        // Set Drone Camera for Map
+        camera.position.set(0, 300, 150);
+        camera.lookAt(0, 0, 0);
+        
+        controls.enabled = true;
+        controls.target.set(0, 0, 0);
+        controls.maxPolarAngle = Math.PI / 2.2; // Don't go under ocean
+        controls.minDistance = 50;
+        controls.maxDistance = 600;
+
+        if (appState !== 'PLAYING') {
+            animate(); 
         }
-        svgLines += `</svg>`;
-        mapArea.insertAdjacentHTML('afterbegin', svgLines);
     }
+
+    // --- RAYCASTER (Detecting 3D Island Taps) ---
+    function onPointerDown(event) {
+        if(appState !== 'MAP') return;
+        
+        // Convert screen tap to 3D coordinate
+        let clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        let clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        
+        // Check if laser hits an island hitbox
+        const intersects = raycaster.intersectObjects(islandHitboxes);
+        if (intersects.length > 0) {
+            const selectedID = intersects[0].object.userData.islandIndex;
+            selectIsland(selectedID);
+        }
+    }
+    window.addEventListener('pointerdown', onPointerDown);
+
 
     function selectIsland(index) {
         currentIsland = index;
         currentQuestion = 0;
         
-        document.getElementById('map-screen').style.display = 'none';
+        // Switch Worlds
+        appState = 'PLAYING';
+        mapGroup.visible = false;
+        gameGroup.visible = true;
+        
+        document.getElementById('map-overlay').style.display = 'none';
         document.getElementById('ui-container').style.display = 'flex';
         document.getElementById('left-controls').style.display = 'flex'; 
         document.getElementById('speed-container').style.display = 'flex'; 
@@ -294,12 +357,11 @@
         bullAudio.play().catch(e => console.log(e));
 
         isDriving = false; 
-        loadIslandBoards(); 
+        isPaused = false;
+        cameraMode = 0; // Reset to action cam
+        controls.enabled = false;
         
-        if (!gameStarted) {
-            gameStarted = true;
-            animate();
-        }
+        loadIslandBoards(); 
     }
 
     function togglePause() {
@@ -385,7 +447,7 @@
     }
 
     function loadIslandBoards() {
-        signboardsArray.forEach(b => scene.remove(b.mesh));
+        signboardsArray.forEach(b => gameGroup.remove(b.mesh));
         signboardsArray.length = 0;
 
         let islandQuestions = gameData[currentIsland];
@@ -413,7 +475,7 @@
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
             completedIslands[currentIsland] = true;
-            openMap();
+            openMap(); // RETURN TO 3D MAP!
             return;
         }
         
@@ -458,11 +520,13 @@
         backFace.rotation.y = Math.PI;
         g.add(backFace);
 
-        g.position.set(xPos, 0, zPos); scene.add(g);
+        g.position.set(xPos, 0, zPos); 
+        gameGroup.add(g);
         signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
     function handleInteractionStart(e) {
+        if(appState !== 'PLAYING') return; // Ignore if on map
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
             isDriving = true; 
@@ -485,6 +549,7 @@
     }
     
     function handleInteractionMove(e) {
+        if(appState !== 'PLAYING') return;
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
         if (!isPaused && isLooking) {
             let clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -499,6 +564,7 @@
     }
 
     function handleInteractionEnd() {
+        if(appState !== 'PLAYING') return;
         activeSteering = 0;
         isLooking = false;
         targetCamAngleOffset = 0; 
@@ -513,104 +579,112 @@
     window.addEventListener('mouseup', handleInteractionEnd);
 
     function animate() {
-        if(!gameStarted) return;
         requestAnimationFrame(animate);
+        const delta = clock.getDelta(); 
+        mixers.forEach(m => m.update(delta)); 
         
-        if (!isPaused) {
-            const delta = clock.getDelta(); 
-            mixers.forEach(m => m.update(delta)); 
-            
-            camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
-            camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
-            
-            let speed = parseFloat(document.getElementById('speed-slider').value);
-            
-            if (isDriving) {
-                if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
-
-                if (activeSteering === 1) carGroup.rotation.y += 0.04;
-                else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
-
-                const oldPos = carGroup.position.clone();
-                carGroup.translateZ(-speed);
-
-                for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
-                for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
-                if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
-
-                let hitIndex = -1;
-                let correctHit = false;
-
-                for (let i = 0; i < signboardsArray.length; i++) {
-                    let board = signboardsArray[i];
-                    if (carGroup.position.distanceTo(board.mesh.position) < 4.5) {
-                        if (board.qIndex === currentQuestion) {
-                            hitIndex = i;
-                            correctHit = true;
-                            break;
-                        } else {
-                            carGroup.translateZ(15); 
-                            isDriving = false;       
-                            document.getElementById('tap-indicator').style.display = 'block'; 
-                            showWrongAnswerUI();
-                            break;
-                        }
-                    }
-                }
-
-                if (correctHit) {
-                    scene.remove(signboardsArray[hitIndex].mesh);
-                    signboardsArray.splice(hitIndex, 1);
-                    currentQuestion++;
-                    updateQuestionUI();
-                }
-
-            } else {
-                if(engineAudio) engineAudio.playbackRate = 0.5; 
-            }
-
-            let mD = 1000; 
-            bullsArray.forEach(b => { 
-                let d = carGroup.position.distanceTo(b.mesh.position); 
-                if(d < mD) mD = d; 
-            }); 
-            bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
-
-            const cy = carGroup.rotation.y + camAngleOffset; 
-            
-            if (cameraMode === 0) {
-                const mPitch = 0.3; 
-                camera.position.lerp(new THREE.Vector3(
-                    carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
-                    carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
-                    carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
-                ), 0.1);
-                
-                let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); 
-                camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), lookY, carGroup.position.z - 20 * Math.cos(cy));
-                
-            } else if (cameraMode === 1) {
-                camera.position.lerp(new THREE.Vector3(
-                    carGroup.position.x + 40 * Math.sin(cy), 
-                    carGroup.position.y + 50, 
-                    carGroup.position.z + 40 * Math.cos(cy)
-                ), 0.1);
-                camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), carGroup.position.y, carGroup.position.z - 20 * Math.cos(cy));
-                
-            } else if (cameraMode === 2) {
-                const time = Date.now() * 0.0005; 
-                camera.position.lerp(new THREE.Vector3(
-                    carGroup.position.x + 40 * Math.sin(time), 
-                    carGroup.position.y + 20, 
-                    carGroup.position.z + 40 * Math.cos(time)
-                ), 0.1);
-                camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
-            }
-        } else {
+        // --- MAP WORLD LOGIC ---
+        if (appState === 'MAP') {
             controls.update(); 
+            renderer.render(scene, camera);
+            return;
         }
 
-        renderer.render(scene, camera);
+        // --- GAME WORLD LOGIC ---
+        if (appState === 'PLAYING') {
+            if (!isPaused) {
+                camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
+                camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
+                
+                let speed = parseFloat(document.getElementById('speed-slider').value);
+                
+                if (isDriving) {
+                    if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
+
+                    if (activeSteering === 1) carGroup.rotation.y += 0.04;
+                    else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
+
+                    const oldPos = carGroup.position.clone();
+                    carGroup.translateZ(-speed);
+
+                    for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
+                    for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
+                    if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
+
+                    let hitIndex = -1;
+                    let correctHit = false;
+
+                    for (let i = 0; i < signboardsArray.length; i++) {
+                        let board = signboardsArray[i];
+                        if (carGroup.position.distanceTo(board.mesh.position) < 4.5) {
+                            if (board.qIndex === currentQuestion) {
+                                hitIndex = i;
+                                correctHit = true;
+                                break;
+                            } else {
+                                carGroup.translateZ(15); 
+                                isDriving = false;       
+                                document.getElementById('tap-indicator').style.display = 'block'; 
+                                showWrongAnswerUI();
+                                break;
+                            }
+                        }
+                    }
+
+                    if (correctHit) {
+                        gameGroup.remove(signboardsArray[hitIndex].mesh);
+                        signboardsArray.splice(hitIndex, 1);
+                        currentQuestion++;
+                        updateQuestionUI();
+                    }
+
+                } else {
+                    if(engineAudio) engineAudio.playbackRate = 0.5; 
+                }
+
+                let mD = 1000; 
+                bullsArray.forEach(b => { 
+                    let d = carGroup.position.distanceTo(b.mesh.position); 
+                    if(d < mD) mD = d; 
+                }); 
+                bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+
+                const cy = carGroup.rotation.y + camAngleOffset; 
+                
+                if (cameraMode === 0) {
+                    const mPitch = 0.3; 
+                    camera.position.lerp(new THREE.Vector3(
+                        carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
+                        carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
+                        carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
+                    ), 0.1);
+                    
+                    let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); 
+                    camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), lookY, carGroup.position.z - 20 * Math.cos(cy));
+                    
+                } else if (cameraMode === 1) {
+                    camera.position.lerp(new THREE.Vector3(
+                        carGroup.position.x + 40 * Math.sin(cy), 
+                        carGroup.position.y + 50, 
+                        carGroup.position.z + 40 * Math.cos(cy)
+                    ), 0.1);
+                    camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), carGroup.position.y, carGroup.position.z - 20 * Math.cos(cy));
+                    
+                } else if (cameraMode === 2) {
+                    const time = Date.now() * 0.0005; 
+                    camera.position.lerp(new THREE.Vector3(
+                        carGroup.position.x + 40 * Math.sin(time), 
+                        carGroup.position.y + 20, 
+                        carGroup.position.z + 40 * Math.cos(time)
+                    ), 0.1);
+                    camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
+                }
+            } else {
+                controls.update(); 
+            }
+
+            renderer.render(scene, camera);
+        }
     }
 
     initAssets();
