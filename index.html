@@ -102,7 +102,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
     const clock = new THREE.Clock();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 8000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 15000); // Increased far plane for bigger map
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -113,11 +113,9 @@
     
     const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
     
-    // Arrays for Map
     let islandMapPositions = [];
-    let flagHitboxes = []; // Sprites that we raycast against
+    let flagHitboxes = []; 
 
-    // Double Tap Logic
     let lastTapTime = 0;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -151,7 +149,6 @@
                 loadModel('https://hussainsaamy.github.io/game-assets/Island.glb')
             ]);
 
-            // --- GAME WORLD ---
             const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
             grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(50, 50);
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE+200, MAP_SIZE+200), new THREE.MeshStandardMaterial({map: grassTex}));
@@ -187,9 +184,9 @@
                 }
             }
 
-            // --- 3D MAP WORLD (Atoll Generator) ---
+            // --- 3D MAP WORLD (Mathematical Atoll Generator) ---
             const ocean = new THREE.Mesh(
-                new THREE.PlaneGeometry(10000, 10000), 
+                new THREE.PlaneGeometry(25000, 25000), // Massive ocean
                 new THREE.MeshStandardMaterial({color: 0x0a5e9e, roughness: 0.1, metalness: 0.3})
             );
             ocean.rotation.x = -Math.PI/2; 
@@ -199,25 +196,17 @@
             if(islandG) {
                 for(let i=0; i < totalIslands; i++) {
                     let pos = new THREE.Vector3();
-                    let safe = false;
-                    let attempts = 0;
                     
-                    // Generate a massive random ring (Atoll shape)
-                    while(!safe && attempts < 1000) {
-                        let angle = Math.random() * Math.PI * 2;
-                        let radius = 600 + (Math.random() * 500); // Massive ring
-                        pos.x = Math.cos(angle) * radius;
-                        pos.z = Math.sin(angle) * radius;
-                        
-                        safe = true;
-                        // Ensure it's AT LEAST 250 units away from all other islands!
-                        for(let j=0; j < islandMapPositions.length; j++) {
-                            if(pos.distanceTo(islandMapPositions[j]) < 250) {
-                                safe = false; break;
-                            }
-                        }
-                        attempts++;
-                    }
+                    // NEW MATH: Guaranteed even spacing around a giant ring
+                    let baseAngle = (i / totalIslands) * Math.PI * 2;
+                    let angleJitter = (Math.random() - 0.5) * 0.1; // Slight natural wiggle
+                    let finalAngle = baseAngle + angleJitter;
+                    
+                    // Much larger radius to spread them very far apart
+                    let radius = 2500 + (Math.random() * 1200); 
+
+                    pos.x = Math.cos(finalAngle) * radius;
+                    pos.z = Math.sin(finalAngle) * radius;
                     
                     islandMapPositions.push(pos);
 
@@ -250,9 +239,7 @@
         const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); gameGroup.add(f); 
     }
 
-    // --- GOOGLE MAPS PINS (Flags) ---
     function generateMapPins() {
-        // Clear old pins
         flagHitboxes.forEach(f => mapGroup.remove(f.parent));
         flagHitboxes = [];
         
@@ -260,19 +247,17 @@
             let isDone = completedIslands[i];
             let pos = islandMapPositions[i];
             
-            // 1. Create the Flag Pole
             const pole = new THREE.Mesh(
-                new THREE.CylinderGeometry(2, 2, 80),
+                new THREE.CylinderGeometry(2, 2, 100), // Taller poles
                 new THREE.MeshBasicMaterial({color: 0xffffff})
             );
-            pole.position.set(pos.x, 40, pos.z);
+            pole.position.set(pos.x, 50, pos.z);
             
-            // 2. Create the Location Pin / Flag
             const canvas = document.createElement('canvas');
             canvas.width = 128; canvas.height = 128;
             const ctx = canvas.getContext('2d');
             
-            ctx.fillStyle = isDone ? "#f1c40f" : "#e74c3c"; // Gold if done, Red if new
+            ctx.fillStyle = isDone ? "#f1c40f" : "#e74c3c"; 
             ctx.beginPath();
             ctx.arc(64, 64, 50, 0, Math.PI * 2);
             ctx.fill();
@@ -290,14 +275,13 @@
             const spriteMat = new THREE.SpriteMaterial({map: tex, depthTest: false});
             const sprite = new THREE.Sprite(spriteMat);
             
-            sprite.scale.set(70, 70, 1);
-            sprite.position.set(pos.x, 100, pos.z);
-            sprite.userData = { islandIndex: i }; // Attach ID to the Sprite!
+            sprite.scale.set(100, 100, 1); // Larger tap targets
+            sprite.position.set(pos.x, 120, pos.z);
+            sprite.userData = { islandIndex: i }; 
             
             mapGroup.add(pole);
             mapGroup.add(sprite);
             
-            // Add Sprite to hitboxes for raycasting
             flagHitboxes.push(sprite);
         }
     }
@@ -321,14 +305,12 @@
 
         generateMapPins();
 
-        // Position Drone Camera
-        camera.position.set(0, 1500, 1000);
+        // Position Drone Camera for huge new map
+        camera.position.set(0, 3000, 2000);
         camera.lookAt(0, 0, 0);
         
-        // GOOGLE MAPS CONTROLS SETUP
         controls.enabled = true;
         controls.enablePan = true;
-        // 1-Finger Pan, 2-Finger Zoom/Rotate (Just like Google Maps)
         controls.touches = {
             ONE: THREE.TOUCH.PAN,
             TWO: THREE.TOUCH.DOLLY_ROTATE
@@ -341,15 +323,14 @@
         
         controls.target.set(0, 0, 0);
         controls.maxPolarAngle = Math.PI / 2.2; 
-        controls.minDistance = 100;
-        controls.maxDistance = 3000; // Let them zoom out far
+        controls.minDistance = 200;
+        controls.maxDistance = 6000; // Let them zoom way out!
 
         if (appState !== 'PLAYING') {
             animate(); 
         }
     }
 
-    // --- DOUBLE-TAP RAYCASTER ---
     function onPointerDown(event) {
         if(appState !== 'MAP') return;
         
@@ -357,7 +338,6 @@
         let tapLength = currentTime - lastTapTime;
         lastTapTime = currentTime;
 
-        // Ensure it's a fast double tap (< 400ms)
         if(tapLength < 400 && tapLength > 0) {
             let clientX = event.touches ? event.touches[0].clientX : event.clientX;
             let clientY = event.touches ? event.touches[0].clientY : event.clientY;
@@ -367,7 +347,6 @@
             
             raycaster.setFromCamera(mouse, camera);
             
-            // Only check if we hit the flags
             const intersects = raycaster.intersectObjects(flagHitboxes);
             if (intersects.length > 0) {
                 const selectedID = intersects[0].object.userData.islandIndex;
@@ -376,7 +355,6 @@
         }
     }
     window.addEventListener('pointerdown', onPointerDown);
-
 
     function selectIsland(index) {
         currentIsland = index;
@@ -416,7 +394,6 @@
             engineAudio.pause();
             bullAudio.pause();
 
-            // Re-enable simple rotation for pause menu
             controls.enabled = true;
             controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             controls.target.set(carGroup.position.x, 5, carGroup.position.z - 20); 
