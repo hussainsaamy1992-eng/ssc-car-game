@@ -102,7 +102,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
     const clock = new THREE.Clock();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 15000); // Increased far plane for bigger map
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 15000); 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -164,11 +164,14 @@
             if(t2) for(let i=0; i<25; i++) spawnDeco(t2.scene, 5, 7, treesArray);
             if(f1) for(let i=0; i<50; i++) spawnDeco(f1.scene, 2, 0, null);
 
+            // ADJUSTED: Scaled the bulls down from 6 to 2.5 and updated collision radius
             if(bullG) { 
                 [160, -160].forEach(x => { 
                     const b = THREE.SkeletonUtils.clone(bullG.scene); 
-                    b.position.set(x, 0, -60); b.scale.set(6,6,6); gameGroup.add(b); 
-                    bullsArray.push({mesh:b, radius:12}); 
+                    b.position.set(x, 0, -60); 
+                    b.scale.set(2.5, 2.5, 2.5); // New, smaller size
+                    gameGroup.add(b); 
+                    bullsArray.push({mesh:b, radius:8}); // Smaller collision box
                     if(bullG.animations.length){ 
                         const m = new THREE.AnimationMixer(b); 
                         m.clipAction(bullG.animations[0]).play(); mixers.push(m); 
@@ -184,9 +187,8 @@
                 }
             }
 
-            // --- 3D MAP WORLD (Mathematical Atoll Generator) ---
             const ocean = new THREE.Mesh(
-                new THREE.PlaneGeometry(25000, 25000), // Massive ocean
+                new THREE.PlaneGeometry(25000, 25000), 
                 new THREE.MeshStandardMaterial({color: 0x0a5e9e, roughness: 0.1, metalness: 0.3})
             );
             ocean.rotation.x = -Math.PI/2; 
@@ -197,12 +199,10 @@
                 for(let i=0; i < totalIslands; i++) {
                     let pos = new THREE.Vector3();
                     
-                    // NEW MATH: Guaranteed even spacing around a giant ring
                     let baseAngle = (i / totalIslands) * Math.PI * 2;
-                    let angleJitter = (Math.random() - 0.5) * 0.1; // Slight natural wiggle
+                    let angleJitter = (Math.random() - 0.5) * 0.1; 
                     let finalAngle = baseAngle + angleJitter;
                     
-                    // Much larger radius to spread them very far apart
                     let radius = 2500 + (Math.random() * 1200); 
 
                     pos.x = Math.cos(finalAngle) * radius;
@@ -248,7 +248,7 @@
             let pos = islandMapPositions[i];
             
             const pole = new THREE.Mesh(
-                new THREE.CylinderGeometry(2, 2, 100), // Taller poles
+                new THREE.CylinderGeometry(2, 2, 100), 
                 new THREE.MeshBasicMaterial({color: 0xffffff})
             );
             pole.position.set(pos.x, 50, pos.z);
@@ -275,7 +275,7 @@
             const spriteMat = new THREE.SpriteMaterial({map: tex, depthTest: false});
             const sprite = new THREE.Sprite(spriteMat);
             
-            sprite.scale.set(100, 100, 1); // Larger tap targets
+            sprite.scale.set(100, 100, 1); 
             sprite.position.set(pos.x, 120, pos.z);
             sprite.userData = { islandIndex: i }; 
             
@@ -305,7 +305,6 @@
 
         generateMapPins();
 
-        // Position Drone Camera for huge new map
         camera.position.set(0, 3000, 2000);
         camera.lookAt(0, 0, 0);
         
@@ -324,7 +323,7 @@
         controls.target.set(0, 0, 0);
         controls.maxPolarAngle = Math.PI / 2.2; 
         controls.minDistance = 200;
-        controls.maxDistance = 6000; // Let them zoom way out!
+        controls.maxDistance = 6000; 
 
         if (appState !== 'PLAYING') {
             animate(); 
