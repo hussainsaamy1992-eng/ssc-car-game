@@ -42,7 +42,6 @@
     
     #toast-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(231, 76, 60, 0.95); color: white; font-size: 24px; font-weight: bold; padding: 20px 40px; border-radius: 15px; z-index: 999; display: none; text-align: center; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.5); pointer-events: none;}
 
-    /* NEW: Worksheet UI Design */
     #worksheet-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fdfbf7; z-index: 400; display: none; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; overflow-y: auto; font-family: inherit; }
     #ws-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     #ws-back-btn { background: #f39c12; color: white; padding: 12px 20px; border-radius: 10px; font-weight: bold; border: none; font-size: 18px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
@@ -65,7 +64,6 @@
   <div id="map-overlay"><span>🗺️ Double-Tap to Play!</span></div>
   <div id="toast-msg">Complete the Worksheet 📝 first to unlock this Island!</div>
 
-  <!-- NEW: Worksheet Overlay -->
   <div id="worksheet-screen">
       <div id="ws-header" dir="ltr">
           <button id="ws-back-btn" onclick="closeWorksheet()">🗺️ MAP</button>
@@ -73,7 +71,6 @@
       </div>
       <div id="ws-question-box">Question loads here</div>
       <div id="ws-answers-grid" id="answers-container">
-          <!-- Buttons injected via JS -->
       </div>
   </div>
 
@@ -101,10 +98,10 @@
 
     let gameData = [];
     
-    // NEW: 0 = Locked, 1 = Unlocked, 2 = Completed(Trophy)
+    // 0 = Locked, 1 = Unlocked, 2 = Completed(Trophy)
     let islandStates = new Array(50).fill(0); 
     
-    let appState = 'LOADING'; // 'LOADING', 'MAP', 'PLAYING', 'WORKSHEET'
+    let appState = 'LOADING'; 
 
     let currentIsland = 0;
     let currentQuestion = 0;
@@ -139,7 +136,7 @@
 
     const gameGroup = new THREE.Group(); scene.add(gameGroup);
     const mapGroup = new THREE.Group(); scene.add(mapGroup);
-    const mapPinsGroup = new THREE.Group(); mapGroup.add(mapPinsGroup); // Keeps pins separate for easy refreshing
+    const mapPinsGroup = new THREE.Group(); mapGroup.add(mapPinsGroup);
     
     const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
     
@@ -267,17 +264,16 @@
     }
 
     function generateMapPins() {
-        // Clear all previous pins from the map
         for(let i = mapPinsGroup.children.length - 1; i >= 0; i--) { 
             mapPinsGroup.remove(mapPinsGroup.children[i]); 
         }
         flagHitboxes = [];
         
         for(let i=0; i < islandMapPositions.length; i++) {
-            let state = islandStates[i]; // 0=Locked, 1=Unlocked, 2=Completed
+            let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
-            // --- 1. MAIN ISLAND FLAG (Drive) ---
+            // --- 1. MAIN ISLAND FLAG ---
             const pole1 = new THREE.Mesh(
                 new THREE.CylinderGeometry(2, 2, 100), 
                 new THREE.MeshBasicMaterial({color: 0xffffff})
@@ -288,7 +284,6 @@
             cvs1.width = 128; cvs1.height = 128;
             const ctx1 = cvs1.getContext('2d');
             
-            // Colors: Gray(Locked), Blue(Unlocked), Gold(Trophy)
             ctx1.fillStyle = state === 2 ? "#f1c40f" : (state === 1 ? "#3498db" : "#95a5a6"); 
             ctx1.beginPath();
             ctx1.arc(64, 64, 50, 0, Math.PI * 2);
@@ -298,13 +293,22 @@
             ctx1.stroke();
             
             ctx1.fillStyle = "white";
-            ctx1.font = "bold 50px Arial";
             ctx1.textAlign = "center";
             ctx1.textBaseline = "middle";
             
-            // Text: Trophy, Number, or Lock
-            let iconText = state === 2 ? "🏆" : (state === 1 ? (i+1) : "🔒");
-            ctx1.fillText(iconText, 64, 64);
+            // NEW: Stack Lock and Number if locked
+            if (state === 2) {
+                ctx1.font = "bold 50px Arial";
+                ctx1.fillText("🏆", 64, 64);
+            } else if (state === 1) {
+                ctx1.font = "bold 50px Arial";
+                ctx1.fillText(i + 1, 64, 64);
+            } else {
+                ctx1.font = "28px Arial";
+                ctx1.fillText("🔒", 64, 45); // Lock on top
+                ctx1.font = "bold 32px Arial";
+                ctx1.fillText(i + 1, 64, 82); // Number on bottom
+            }
             
             const tex1 = new THREE.CanvasTexture(cvs1);
             const mat1 = new THREE.SpriteMaterial({map: tex1, depthTest: false});
@@ -317,20 +321,19 @@
             mapPinsGroup.add(sprite1);
             flagHitboxes.push(sprite1);
 
-            // --- 2. WORKSHEET BOARD (Match game) ---
-            // Only show worksheet board if island is NOT completed
+            // --- 2. WORKSHEET BOARD ---
             if (state < 2) {
                 const pole2 = new THREE.Mesh(
                     new THREE.CylinderGeometry(1.5, 1.5, 60), 
                     new THREE.MeshBasicMaterial({color: 0xcccccc})
                 );
-                pole2.position.set(pos.x + 50, 30, pos.z + 50); // Offset to the side
+                pole2.position.set(pos.x + 50, 30, pos.z + 50); 
                 
                 const cvs2 = document.createElement('canvas');
                 cvs2.width = 128; cvs2.height = 128;
                 const ctx2 = cvs2.getContext('2d');
                 
-                ctx2.fillStyle = "#e74c3c"; // Red for worksheet
+                ctx2.fillStyle = "#e74c3c"; 
                 ctx2.beginPath();
                 ctx2.arc(64, 64, 45, 0, Math.PI * 2);
                 ctx2.fill();
@@ -342,12 +345,12 @@
                 ctx2.font = "bold 45px Arial";
                 ctx2.textAlign = "center";
                 ctx2.textBaseline = "middle";
-                ctx2.fillText("📝", 64, 64); // Worksheet emoji
+                ctx2.fillText("📝", 64, 64); 
                 
                 const tex2 = new THREE.CanvasTexture(cvs2);
                 const mat2 = new THREE.SpriteMaterial({map: tex2, depthTest: false});
                 const sprite2 = new THREE.Sprite(mat2);
-                sprite2.scale.set(70, 70, 1); // Slightly smaller
+                sprite2.scale.set(70, 70, 1); 
                 sprite2.position.set(pos.x + 50, 80, pos.z + 50);
                 sprite2.userData = { type: 'worksheet', islandIndex: i }; 
                 
@@ -387,7 +390,7 @@
         mapGroup.visible = true;
         appState = 'MAP';
 
-        generateMapPins(); // Redraw pins to update Locks to Numbers/Trophies
+        generateMapPins(); 
 
         camera.position.set(0, 3000, 2000);
         camera.lookAt(0, 0, 0);
@@ -415,7 +418,6 @@
         let tapLength = currentTime - lastTapTime;
         lastTapTime = currentTime;
 
-        // Double Tap detection
         if(tapLength < 400 && tapLength > 0) {
             let clientX = event.touches ? event.touches[0].clientX : event.clientX;
             let clientY = event.touches ? event.touches[0].clientY : event.clientY;
@@ -430,11 +432,9 @@
                 const tappedData = intersects[0].object.userData;
                 
                 if (tappedData.type === 'worksheet') {
-                    // Start Matching Minigame
                     startWorksheet(tappedData.islandIndex);
                 } 
                 else if (tappedData.type === 'driving') {
-                    // Check if Locked!
                     if (islandStates[tappedData.islandIndex] === 0) {
                         showToast("Complete the 📝 Worksheet first to unlock this island!");
                     } else {
@@ -453,7 +453,6 @@
         setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
 
-    // --- WORKSHEET MINIGAME LOGIC ---
     let wsCurrentIsland = 0;
     let wsCurrentQuestion = 0;
     let wsRemainingAnswers = [];
@@ -463,14 +462,12 @@
         wsCurrentIsland = index;
         wsCurrentQuestion = 0;
         
-        // Hide map, show worksheet UI
         document.getElementById('map-overlay').style.display = 'none';
         document.getElementById('worksheet-screen').style.display = 'flex';
         
-        // Get all correct answers for this island and shuffle them for the buttons
         let islandQ = gameData[wsCurrentIsland];
         wsRemainingAnswers = islandQ.map(q => q.correctAnswer);
-        wsRemainingAnswers.sort(() => Math.random() - 0.5); // Shuffle
+        wsRemainingAnswers.sort(() => Math.random() - 0.5); 
         
         document.getElementById('ws-title').innerText = "Island " + (index + 1);
         renderWorksheet();
@@ -481,7 +478,7 @@
         document.getElementById('ws-question-box').innerText = islandQ[wsCurrentQuestion].question;
         
         const grid = document.getElementById('ws-answers-grid');
-        grid.innerHTML = ''; // Clear old buttons
+        grid.innerHTML = ''; 
         
         wsRemainingAnswers.forEach(ans => {
             let btn = document.createElement('button');
@@ -496,20 +493,17 @@
         let correctAns = gameData[wsCurrentIsland][wsCurrentQuestion].correctAnswer;
         
         if (selectedAnswer === correctAns) {
-            // Correct! Remove answer from list and advance
             wsRemainingAnswers = wsRemainingAnswers.filter(a => a !== correctAns);
             wsCurrentQuestion++;
             
             if (wsCurrentQuestion >= 10) {
-                // WORKSHEET COMPLETE! Unlock the island!
                 if (islandStates[wsCurrentIsland] < 1) islandStates[wsCurrentIsland] = 1; 
                 showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!");
                 openMap();
             } else {
-                renderWorksheet(); // Load next question
+                renderWorksheet(); 
             }
         } else {
-            // Wrong! Flash button red
             btnElement.style.background = "#e74c3c";
             setTimeout(() => { btnElement.style.background = "#2ecc71"; }, 800);
         }
@@ -519,7 +513,6 @@
         openMap();
     }
 
-    // --- DRIVING GAME LOGIC ---
     function startDrivingGame(index) {
         currentIsland = index;
         currentQuestion = 0;
@@ -661,7 +654,6 @@
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
-            // Level Completed - Award Trophy!
             islandStates[currentIsland] = 2; 
             showToast("🏆 You Earned a Trophy! Returning to Map...");
             setTimeout(openMap, 2000); 
