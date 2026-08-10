@@ -28,7 +28,7 @@
     .control-btn { padding: 12px 10px; font-size: 14px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
     #pause-btn { background: #e74c3c; border-bottom: 4px solid #c0392b; }
     #cam-btn { background: #3498db; border-bottom: 4px solid #2980b9; }
-    #map-btn { background: #f39c12; border-bottom: 4px solid #d68910; } /* NEW MAP BUTTON */
+    #map-btn { background: #f39c12; border-bottom: 4px solid #d68910; } 
     
     #speed-container { position: absolute; bottom: 20px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
@@ -39,6 +39,17 @@
 
     #map-overlay { position: absolute; top: 15px; width: 100%; text-align: center; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 100; display: none; pointer-events: none; }
     #map-overlay span { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 15px; border: 2px solid #3498db; }
+    
+    #toast-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(231, 76, 60, 0.95); color: white; font-size: 24px; font-weight: bold; padding: 20px 40px; border-radius: 15px; z-index: 999; display: none; text-align: center; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.5); pointer-events: none;}
+
+    /* NEW: Worksheet UI Design */
+    #worksheet-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fdfbf7; z-index: 400; display: none; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; overflow-y: auto; font-family: inherit; }
+    #ws-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    #ws-back-btn { background: #f39c12; color: white; padding: 12px 20px; border-radius: 10px; font-weight: bold; border: none; font-size: 18px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
+    #ws-title { font-size: 26px; color: #2c3e50; font-weight: bold; }
+    #ws-question-box { background: white; padding: 25px; border-radius: 15px; font-size: 26px; font-weight: bold; text-align: center; width: 100%; max-width: 600px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); margin-bottom: 25px; border: 3px solid #3498db; color: #2c3e50;}
+    #ws-answers-grid { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 600px; }
+    .ws-answer-btn { background: #2ecc71; color: white; padding: 18px; border-radius: 10px; border: none; font-size: 22px; cursor: pointer; font-family: inherit; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: background 0.3s; text-align: right;}
   </style>
 </head>
 <body>
@@ -51,7 +62,20 @@
     <button id="start-btn" onclick="openMap()">OPEN MAP</button>
   </div>
 
-  <div id="map-overlay"><span>🗺️ Double-Tap a Flag to Play!</span></div>
+  <div id="map-overlay"><span>🗺️ Double-Tap to Play!</span></div>
+  <div id="toast-msg">Complete the Worksheet 📝 first to unlock this Island!</div>
+
+  <!-- NEW: Worksheet Overlay -->
+  <div id="worksheet-screen">
+      <div id="ws-header" dir="ltr">
+          <button id="ws-back-btn" onclick="closeWorksheet()">🗺️ MAP</button>
+          <div id="ws-title">Island 1</div>
+      </div>
+      <div id="ws-question-box">Question loads here</div>
+      <div id="ws-answers-grid" id="answers-container">
+          <!-- Buttons injected via JS -->
+      </div>
+  </div>
 
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
@@ -76,9 +100,11 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
     let gameData = [];
-    let completedIslands = new Array(50).fill(false);
     
-    let appState = 'LOADING'; 
+    // NEW: 0 = Locked, 1 = Unlocked, 2 = Completed(Trophy)
+    let islandStates = new Array(50).fill(0); 
+    
+    let appState = 'LOADING'; // 'LOADING', 'MAP', 'PLAYING', 'WORKSHEET'
 
     let currentIsland = 0;
     let currentQuestion = 0;
@@ -113,6 +139,7 @@
 
     const gameGroup = new THREE.Group(); scene.add(gameGroup);
     const mapGroup = new THREE.Group(); scene.add(mapGroup);
+    const mapPinsGroup = new THREE.Group(); mapGroup.add(mapPinsGroup); // Keeps pins separate for easy refreshing
     
     const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
     
@@ -200,11 +227,9 @@
             if(islandG) {
                 for(let i=0; i < totalIslands; i++) {
                     let pos = new THREE.Vector3();
-                    
                     let baseAngle = (i / totalIslands) * Math.PI * 2;
                     let angleJitter = (Math.random() - 0.5) * 0.1; 
                     let finalAngle = baseAngle + angleJitter;
-                    
                     let radius = 2500 + (Math.random() * 1200); 
 
                     pos.x = Math.cos(finalAngle) * radius;
@@ -242,55 +267,98 @@
     }
 
     function generateMapPins() {
-        flagHitboxes.forEach(f => mapGroup.remove(f.parent));
+        // Clear all previous pins from the map
+        for(let i = mapPinsGroup.children.length - 1; i >= 0; i--) { 
+            mapPinsGroup.remove(mapPinsGroup.children[i]); 
+        }
         flagHitboxes = [];
         
         for(let i=0; i < islandMapPositions.length; i++) {
-            let isDone = completedIslands[i];
+            let state = islandStates[i]; // 0=Locked, 1=Unlocked, 2=Completed
             let pos = islandMapPositions[i];
             
-            const pole = new THREE.Mesh(
+            // --- 1. MAIN ISLAND FLAG (Drive) ---
+            const pole1 = new THREE.Mesh(
                 new THREE.CylinderGeometry(2, 2, 100), 
                 new THREE.MeshBasicMaterial({color: 0xffffff})
             );
-            pole.position.set(pos.x, 50, pos.z);
+            pole1.position.set(pos.x, 50, pos.z);
             
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
-            const ctx = canvas.getContext('2d');
+            const cvs1 = document.createElement('canvas');
+            cvs1.width = 128; cvs1.height = 128;
+            const ctx1 = cvs1.getContext('2d');
             
-            ctx.fillStyle = isDone ? "#f1c40f" : "#e74c3c"; 
-            ctx.beginPath();
-            ctx.arc(64, 64, 50, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = "white";
-            ctx.stroke();
+            // Colors: Gray(Locked), Blue(Unlocked), Gold(Trophy)
+            ctx1.fillStyle = state === 2 ? "#f1c40f" : (state === 1 ? "#3498db" : "#95a5a6"); 
+            ctx1.beginPath();
+            ctx1.arc(64, 64, 50, 0, Math.PI * 2);
+            ctx1.fill();
+            ctx1.lineWidth = 6;
+            ctx1.strokeStyle = "white";
+            ctx1.stroke();
             
-            ctx.fillStyle = "white";
-            ctx.font = "bold 50px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(i + 1, 64, 64);
+            ctx1.fillStyle = "white";
+            ctx1.font = "bold 50px Arial";
+            ctx1.textAlign = "center";
+            ctx1.textBaseline = "middle";
             
-            const tex = new THREE.CanvasTexture(canvas);
-            const spriteMat = new THREE.SpriteMaterial({map: tex, depthTest: false});
-            const sprite = new THREE.Sprite(spriteMat);
+            // Text: Trophy, Number, or Lock
+            let iconText = state === 2 ? "🏆" : (state === 1 ? (i+1) : "🔒");
+            ctx1.fillText(iconText, 64, 64);
             
-            sprite.scale.set(100, 100, 1); 
-            sprite.position.set(pos.x, 120, pos.z);
-            sprite.userData = { islandIndex: i }; 
+            const tex1 = new THREE.CanvasTexture(cvs1);
+            const mat1 = new THREE.SpriteMaterial({map: tex1, depthTest: false});
+            const sprite1 = new THREE.Sprite(mat1);
+            sprite1.scale.set(100, 100, 1); 
+            sprite1.position.set(pos.x, 120, pos.z);
+            sprite1.userData = { type: 'driving', islandIndex: i }; 
             
-            mapGroup.add(pole);
-            mapGroup.add(sprite);
-            
-            flagHitboxes.push(sprite);
+            mapPinsGroup.add(pole1);
+            mapPinsGroup.add(sprite1);
+            flagHitboxes.push(sprite1);
+
+            // --- 2. WORKSHEET BOARD (Match game) ---
+            // Only show worksheet board if island is NOT completed
+            if (state < 2) {
+                const pole2 = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.5, 1.5, 60), 
+                    new THREE.MeshBasicMaterial({color: 0xcccccc})
+                );
+                pole2.position.set(pos.x + 50, 30, pos.z + 50); // Offset to the side
+                
+                const cvs2 = document.createElement('canvas');
+                cvs2.width = 128; cvs2.height = 128;
+                const ctx2 = cvs2.getContext('2d');
+                
+                ctx2.fillStyle = "#e74c3c"; // Red for worksheet
+                ctx2.beginPath();
+                ctx2.arc(64, 64, 45, 0, Math.PI * 2);
+                ctx2.fill();
+                ctx2.lineWidth = 4;
+                ctx2.strokeStyle = "white";
+                ctx2.stroke();
+                
+                ctx2.fillStyle = "white";
+                ctx2.font = "bold 45px Arial";
+                ctx2.textAlign = "center";
+                ctx2.textBaseline = "middle";
+                ctx2.fillText("📝", 64, 64); // Worksheet emoji
+                
+                const tex2 = new THREE.CanvasTexture(cvs2);
+                const mat2 = new THREE.SpriteMaterial({map: tex2, depthTest: false});
+                const sprite2 = new THREE.Sprite(mat2);
+                sprite2.scale.set(70, 70, 1); // Slightly smaller
+                sprite2.position.set(pos.x + 50, 80, pos.z + 50);
+                sprite2.userData = { type: 'worksheet', islandIndex: i }; 
+                
+                mapPinsGroup.add(pole2);
+                mapPinsGroup.add(sprite2);
+                flagHitboxes.push(sprite2);
+            }
         }
     }
 
-    // NEW: Function to return to the map mid-game
     function returnToMap() {
-        // Unpause if the player was currently paused
         if (isPaused) {
             isPaused = false;
             const btn = document.getElementById('pause-btn');
@@ -298,12 +366,12 @@
             btn.style.background = "#e74c3c"; 
             btn.style.borderColor = "#c0392b";
         }
-        
-        openMap(); // Reuse the open map function!
+        openMap(); 
     }
 
     function openMap() {
         document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('worksheet-screen').style.display = 'none';
         
         document.getElementById('ui-container').style.display = 'none';
         document.getElementById('left-controls').style.display = 'none';
@@ -319,29 +387,21 @@
         mapGroup.visible = true;
         appState = 'MAP';
 
-        generateMapPins();
+        generateMapPins(); // Redraw pins to update Locks to Numbers/Trophies
 
         camera.position.set(0, 3000, 2000);
         camera.lookAt(0, 0, 0);
         
         controls.enabled = true;
         controls.enablePan = true;
-        controls.touches = {
-            ONE: THREE.TOUCH.PAN,
-            TWO: THREE.TOUCH.DOLLY_ROTATE
-        };
-        controls.mouseButtons = {
-            LEFT: THREE.MOUSE.PAN,
-            MIDDLE: THREE.MOUSE.DOLLY,
-            RIGHT: THREE.MOUSE.ROTATE
-        };
+        controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
+        controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
         
         controls.target.set(0, 0, 0);
         controls.maxPolarAngle = Math.PI / 2.2; 
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
 
-        // Start the master animation loop only once!
         if (!gameStarted) {
             gameStarted = true;
             animate(); 
@@ -355,6 +415,7 @@
         let tapLength = currentTime - lastTapTime;
         lastTapTime = currentTime;
 
+        // Double Tap detection
         if(tapLength < 400 && tapLength > 0) {
             let clientX = event.touches ? event.touches[0].clientX : event.clientX;
             let clientY = event.touches ? event.touches[0].clientY : event.clientY;
@@ -366,14 +427,100 @@
             
             const intersects = raycaster.intersectObjects(flagHitboxes);
             if (intersects.length > 0) {
-                const selectedID = intersects[0].object.userData.islandIndex;
-                selectIsland(selectedID);
+                const tappedData = intersects[0].object.userData;
+                
+                if (tappedData.type === 'worksheet') {
+                    // Start Matching Minigame
+                    startWorksheet(tappedData.islandIndex);
+                } 
+                else if (tappedData.type === 'driving') {
+                    // Check if Locked!
+                    if (islandStates[tappedData.islandIndex] === 0) {
+                        showToast("Complete the 📝 Worksheet first to unlock this island!");
+                    } else {
+                        startDrivingGame(tappedData.islandIndex);
+                    }
+                }
             }
         }
     }
     window.addEventListener('pointerdown', onPointerDown);
+    
+    function showToast(msg) {
+        const toast = document.getElementById('toast-msg');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
 
-    function selectIsland(index) {
+    // --- WORKSHEET MINIGAME LOGIC ---
+    let wsCurrentIsland = 0;
+    let wsCurrentQuestion = 0;
+    let wsRemainingAnswers = [];
+
+    function startWorksheet(index) {
+        appState = 'WORKSHEET';
+        wsCurrentIsland = index;
+        wsCurrentQuestion = 0;
+        
+        // Hide map, show worksheet UI
+        document.getElementById('map-overlay').style.display = 'none';
+        document.getElementById('worksheet-screen').style.display = 'flex';
+        
+        // Get all correct answers for this island and shuffle them for the buttons
+        let islandQ = gameData[wsCurrentIsland];
+        wsRemainingAnswers = islandQ.map(q => q.correctAnswer);
+        wsRemainingAnswers.sort(() => Math.random() - 0.5); // Shuffle
+        
+        document.getElementById('ws-title').innerText = "Island " + (index + 1);
+        renderWorksheet();
+    }
+
+    function renderWorksheet() {
+        let islandQ = gameData[wsCurrentIsland];
+        document.getElementById('ws-question-box').innerText = islandQ[wsCurrentQuestion].question;
+        
+        const grid = document.getElementById('ws-answers-grid');
+        grid.innerHTML = ''; // Clear old buttons
+        
+        wsRemainingAnswers.forEach(ans => {
+            let btn = document.createElement('button');
+            btn.className = 'ws-answer-btn';
+            btn.innerText = ans;
+            btn.onclick = function() { checkWorksheetAnswer(this, ans); };
+            grid.appendChild(btn);
+        });
+    }
+
+    function checkWorksheetAnswer(btnElement, selectedAnswer) {
+        let correctAns = gameData[wsCurrentIsland][wsCurrentQuestion].correctAnswer;
+        
+        if (selectedAnswer === correctAns) {
+            // Correct! Remove answer from list and advance
+            wsRemainingAnswers = wsRemainingAnswers.filter(a => a !== correctAns);
+            wsCurrentQuestion++;
+            
+            if (wsCurrentQuestion >= 10) {
+                // WORKSHEET COMPLETE! Unlock the island!
+                if (islandStates[wsCurrentIsland] < 1) islandStates[wsCurrentIsland] = 1; 
+                showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!");
+                openMap();
+            } else {
+                renderWorksheet(); // Load next question
+            }
+        } else {
+            // Wrong! Flash button red
+            btnElement.style.background = "#e74c3c";
+            setTimeout(() => { btnElement.style.background = "#2ecc71"; }, 800);
+        }
+    }
+
+    function closeWorksheet() {
+        openMap();
+    }
+
+    // --- DRIVING GAME LOGIC ---
+    function startDrivingGame(index) {
         currentIsland = index;
         currentQuestion = 0;
         
@@ -413,10 +560,8 @@
 
             controls.enabled = true;
             controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-            
             controls.minDistance = 2; 
             controls.maxDistance = 200; 
-            
             controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); 
             controls.update(); 
             
@@ -481,8 +626,7 @@
             safe = true;
             for (let b of signboardsArray) {
                 if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 40) {
-                    safe = false;
-                    break;
+                    safe = false; break;
                 }
             }
         }
@@ -517,8 +661,10 @@
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
-            completedIslands[currentIsland] = true;
-            openMap(); 
+            // Level Completed - Award Trophy!
+            islandStates[currentIsland] = 2; 
+            showToast("🏆 You Earned a Trophy! Returning to Map...");
+            setTimeout(openMap, 2000); 
             return;
         }
         
