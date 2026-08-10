@@ -24,10 +24,11 @@
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; }
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
-    #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 10px; }
-    .control-btn { padding: 12px 15px; font-size: 16px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
+    #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 8px; }
+    .control-btn { padding: 12px 10px; font-size: 14px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
     #pause-btn { background: #e74c3c; border-bottom: 4px solid #c0392b; }
     #cam-btn { background: #3498db; border-bottom: 4px solid #2980b9; }
+    #map-btn { background: #f39c12; border-bottom: 4px solid #d68910; } /* NEW MAP BUTTON */
     
     #speed-container { position: absolute; bottom: 20px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
@@ -60,6 +61,7 @@
   <div id="tap-indicator">Tap sides to steer.<br>Swipe middle to look around!</div>
 
   <div id="left-controls">
+    <button id="map-btn" class="control-btn" onclick="returnToMap()" dir="ltr">🗺️ MAP</button>
     <button id="pause-btn" class="control-btn" onclick="togglePause()" dir="ltr">⏸ PAUSE</button>
     <button id="cam-btn" class="control-btn" onclick="toggleCamera()" dir="ltr">🎥 ACTION</button>
   </div>
@@ -80,6 +82,7 @@
 
     let currentIsland = 0;
     let currentQuestion = 0;
+    let gameStarted = false;
     let isPaused = false; 
     let isDriving = false; 
     let MAP_SIZE = 400, BOUNDARY = 190;
@@ -285,6 +288,20 @@
         }
     }
 
+    // NEW: Function to return to the map mid-game
+    function returnToMap() {
+        // Unpause if the player was currently paused
+        if (isPaused) {
+            isPaused = false;
+            const btn = document.getElementById('pause-btn');
+            btn.innerText = "⏸ PAUSE";
+            btn.style.background = "#e74c3c"; 
+            btn.style.borderColor = "#c0392b";
+        }
+        
+        openMap(); // Reuse the open map function!
+    }
+
     function openMap() {
         document.getElementById('loading-screen').style.display = 'none';
         
@@ -294,8 +311,8 @@
         document.getElementById('tap-indicator').style.display = 'none';
         document.getElementById('map-overlay').style.display = 'block';
         
-        engineAudio.pause();
-        bullAudio.pause();
+        if(engineAudio) engineAudio.pause();
+        if(bullAudio) bullAudio.pause();
         isDriving = false;
 
         gameGroup.visible = false;
@@ -321,12 +338,12 @@
         
         controls.target.set(0, 0, 0);
         controls.maxPolarAngle = Math.PI / 2.2; 
-        
-        // MAP ZOOM LIMITS
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
 
-        if (appState !== 'PLAYING') {
+        // Start the master animation loop only once!
+        if (!gameStarted) {
+            gameStarted = true;
             animate(); 
         }
     }
@@ -397,9 +414,8 @@
             controls.enabled = true;
             controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             
-            // FIX: Drop the minimum zoom distance down to 2 so the player can zoom right up to the board!
             controls.minDistance = 2; 
-            controls.maxDistance = 200; // Prevent them from zooming out into the sky while paused
+            controls.maxDistance = 200; 
             
             controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); 
             controls.update(); 
