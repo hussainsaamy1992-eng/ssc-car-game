@@ -321,6 +321,8 @@
         
         controls.target.set(0, 0, 0);
         controls.maxPolarAngle = Math.PI / 2.2; 
+        
+        // MAP ZOOM LIMITS
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
 
@@ -395,9 +397,12 @@
             controls.enabled = true;
             controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             
-            // FIX: Set camera target EXACTLY to the car's current position so it doesn't fly away
+            // FIX: Drop the minimum zoom distance down to 2 so the player can zoom right up to the board!
+            controls.minDistance = 2; 
+            controls.maxDistance = 200; // Prevent them from zooming out into the sky while paused
+            
             controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); 
-            controls.update(); // Sync immediately
+            controls.update(); 
             
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
