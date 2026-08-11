@@ -78,6 +78,7 @@
 </head>
 <body>
 
+  <!-- Background Bull Sound -->
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
   <!-- Login Screen -->
@@ -147,7 +148,7 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
-    // --- NEW: SYNTHETIC WEB AUDIO ENGINE ---
+    // --- SYNTHETIC WEB AUDIO ENGINE ---
     let audioCtx;
     let engineOsc;
     let engineGain;
@@ -177,11 +178,9 @@
     function updateEngineSound(driving, speed) {
         if (!audioCtx || !engineGain) return;
         if (driving && !isPaused) {
-            // Smoothly fade in and pitch up based on speed
             engineGain.gain.setTargetAtTime(0.2, audioCtx.currentTime, 0.1);
             engineOsc.frequency.setTargetAtTime(40 + (speed * 40), audioCtx.currentTime, 0.1);
         } else {
-            // Instantly go silent when not driving
             engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
         }
     }
@@ -598,10 +597,8 @@
         clearInterval(timerInterval);
         document.getElementById('top-left-stats').style.display = 'none';
         
-        // INSTANTLY KILL AUDIO ENGINE
         if(audioCtx) updateEngineSound(false, 0);
 
-        // RESET QUESTION BOX STYLE IN CASE THEY QUIT AFTER A WRONG ANSWER
         const qBox = document.getElementById('question-box');
         qBox.style.color = "white";
         qBox.style.background = "transparent";
@@ -622,7 +619,7 @@
         document.getElementById('map-overlay').style.display = 'block';
         
         if(bullAudio) bullAudio.pause();
-        if(audioCtx) updateEngineSound(false, 0); // MUTE SYNTH ENGINE
+        if(audioCtx) updateEngineSound(false, 0); 
         
         isDriving = false;
 
@@ -801,7 +798,6 @@
         drivingLives = 3; 
         document.getElementById('driving-lives').innerText = '❤️❤️❤️';
         
-        // RESET QUESTION BOX STYLE
         const qBox = document.getElementById('question-box');
         qBox.style.color = "white";
         qBox.style.background = "transparent";
@@ -820,9 +816,9 @@
         gameStartTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
 
-        // START SYNTH AUDIO
         initEngineSound();
 
+        // Reduce bull volume directly here
         bullAudio.volume = 0.0;
         bullAudio.play().catch(e => console.log(e));
 
@@ -840,7 +836,7 @@
         if (isPaused) {
             btn.innerText = "▶ RESUME"; btn.style.background = "#27ae60"; btn.style.borderColor = "#2ecc71";
             bullAudio.pause();
-            if(audioCtx) updateEngineSound(false, 0); // MUTE ENGINE
+            if(audioCtx) updateEngineSound(false, 0); 
 
             controls.enabled = true; controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             controls.minDistance = 2; controls.maxDistance = 200; 
@@ -895,17 +891,13 @@
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
-            
-            // --- NEW: INSTANT TROPHY LOGIC ---
             clearInterval(timerInterval);
             let timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
             
-            // STOP THE CAR
             isDriving = false;
             activeSteering = 0;
             if(audioCtx) updateEngineSound(false, 0);
             
-            // SHOW THE GOLD TROPHY IMMEDIATELY
             const qBox = document.getElementById('question-box');
             qBox.innerText = "🏆 ލެވެލް ފުރިހަމަވީ! (Level Complete!)"; 
             qBox.style.color = "gold"; 
@@ -976,7 +968,6 @@
                 camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1; camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
                 let speed = parseFloat(document.getElementById('speed-slider').value);
                 
-                // UPDATE ENGINE SYNTH AUDIO
                 if (audioCtx) updateEngineSound(isDriving, speed);
                 
                 if (isDriving) {
@@ -1019,7 +1010,9 @@
                     if (correctHit) { gameGroup.remove(signboardsArray[hitIndex].mesh); signboardsArray.splice(hitIndex, 1); currentQuestion++; updateQuestionUI(); }
                 }
 
-                let mD = 1000; bullsArray.forEach(b => { let d = carGroup.position.distanceTo(b.mesh.position); if(d < mD) mD = d; }); bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+                // FIX: Apply the 15% maximum volume to the bull sound based on distance
+                let mD = 1000; bullsArray.forEach(b => { let d = carGroup.position.distanceTo(b.mesh.position); if(d < mD) mD = d; }); 
+                bullAudio.volume = Math.max(0, 1 - (mD / 120)) * 0.15; 
 
                 const cy = carGroup.rotation.y + camAngleOffset; 
                 if (cameraMode === 0) {
