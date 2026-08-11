@@ -120,11 +120,8 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
     let gameData = [];
-    
-    // 0 = Locked, 1 = Unlocked, 2 = Completed(Trophy)
     let islandStates = new Array(50).fill(0); 
     let readBooklets = new Array(50).fill(false);
-    
     let appState = 'LOADING'; 
 
     let currentIsland = 0;
@@ -163,7 +160,6 @@
     const mapPinsGroup = new THREE.Group(); mapGroup.add(mapPinsGroup);
     
     const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
-    
     let islandMapPositions = [];
     let flagHitboxes = []; 
 
@@ -175,6 +171,9 @@
     controls.enabled = false; 
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    
+    // FIX: Lock map panning strictly to horizontal movement
+    controls.screenSpacePanning = false;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(100, 200, 100); scene.add(sun);
@@ -182,8 +181,6 @@
     const carGroup = new THREE.Group(); gameGroup.add(carGroup);
     const gltfLoader = new THREE.GLTFLoader();
 
-    // --- NEW: Telecom Antenna Generator Materials ---
-    // Defined globally so we don't recreate them 150 times, keeping performance smooth!
     const towerMatRed = new THREE.MeshStandardMaterial({color: 0xcc0000, roughness: 0.8, flatShading: true});
     const towerMatWhite = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.8, flatShading: true});
     const towerEdgeMat = new THREE.LineBasicMaterial({ color: 0x222222, linewidth: 2 });
@@ -294,34 +291,29 @@
         const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); gameGroup.add(f); 
     }
 
-    // --- NEW: 3D Antenna Tower Generator ---
-    // Builds a Red/White lattice-style telecom tower dynamically
     function createAntennaTower(height) {
         const towerGroup = new THREE.Group();
         const segments = 5;
         const segmentHeight = height / segments;
-        const bottomRadius = height * 0.05; // Base is 5% of height
-        const topRadius = height * 0.01;    // Top is 1% of height
+        const bottomRadius = height * 0.05; 
+        const topRadius = height * 0.01;    
 
-        // 1. Build the Red & White striped tower body
         for (let i = 0; i < segments; i++) {
             const rBottom = bottomRadius - ((bottomRadius - topRadius) * (i / segments));
             const rTop = bottomRadius - ((bottomRadius - topRadius) * ((i + 1) / segments));
 
-            const geo = new THREE.CylinderGeometry(rTop, rBottom, segmentHeight, 4); // 4-sided to look like lattice
+            const geo = new THREE.CylinderGeometry(rTop, rBottom, segmentHeight, 4); 
             const mesh = new THREE.Mesh(geo, i % 2 === 0 ? towerMatRed : towerMatWhite);
             
-            // Add dark edges to simulate the steel bars/lattice structure
             const edges = new THREE.EdgesGeometry(geo);
             const line = new THREE.LineSegments(edges, towerEdgeMat);
             mesh.add(line);
 
             mesh.position.y = (i * segmentHeight) + (segmentHeight / 2) - (height / 2);
-            mesh.rotation.y = Math.PI / 4; // Rotate diagonally for better visual profile
+            mesh.rotation.y = Math.PI / 4; 
             towerGroup.add(mesh);
         }
 
-        // 2. Add Telecom / Microwave Dishes near the top
         const dishGeo = new THREE.CylinderGeometry(height * 0.04, height * 0.02, height * 0.02, 8);
         const dish1 = new THREE.Mesh(dishGeo, dishMat);
         dish1.rotation.x = Math.PI / 2;
@@ -347,9 +339,8 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
-            // --- 1. MAIN ISLAND TOWER (Driving/Status) ---
             const tower1 = createAntennaTower(100);
-            tower1.position.set(pos.x, 50, pos.z); // y=50 centers the 100 height tower properly
+            tower1.position.set(pos.x, 50, pos.z); 
             
             const cvs1 = document.createElement('canvas');
             cvs1.width = 128; cvs1.height = 128;
@@ -383,13 +374,11 @@
             sprite1.position.set(pos.x, 120, pos.z);
             sprite1.userData = { type: 'driving', islandIndex: i }; 
             
-            mapPinsGroup.add(tower1); // Replaced simple pole with Antenna Tower
+            mapPinsGroup.add(tower1); 
             mapPinsGroup.add(sprite1);
             flagHitboxes.push(sprite1);
 
-            // --- 2. WORKSHEET & BOOKLET TOWERS ---
             if (state < 2) {
-                // RED WORKSHEET TOWER (📝)
                 const tower2 = createAntennaTower(60);
                 tower2.position.set(pos.x + 50, 30, pos.z + 50); 
                 
@@ -411,7 +400,6 @@
                 mapPinsGroup.add(sprite2); 
                 flagHitboxes.push(sprite2);
 
-                // BLUE BOOKLET TOWER (📖)
                 const tower3 = createAntennaTower(60);
                 tower3.position.set(pos.x - 50, 30, pos.z + 50); 
                 
@@ -484,7 +472,8 @@
         controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
         controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
         
-        controls.maxPolarAngle = Math.PI / 2.2; 
+        // FIX: Tighter max angle to prevent looking under the horizon
+        controls.maxPolarAngle = Math.PI / 2.4; 
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
         controls.update(); 
@@ -895,6 +884,8 @@
         mixers.forEach(m => m.update(delta)); 
         
         if (appState === 'MAP') {
+            // FIX: Lock target.y strictly to 0 to prevent camera from ever dipping below the ocean plane
+            controls.target.y = 0; 
             controls.update(); 
             renderer.render(scene, camera);
             return;
