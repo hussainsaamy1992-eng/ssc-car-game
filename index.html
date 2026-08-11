@@ -212,9 +212,9 @@
     let islandMapPositions = [];
     let flagHitboxes = []; 
 
-    let lastTapTime = 0;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let lastTapTime = 0;
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enabled = false; 
@@ -235,6 +235,24 @@
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
+    // --- SAVE PROGRESS SYSTEM (LOCAL STORAGE) ---
+    function saveProgress() {
+        if (!currentUser) return;
+        localStorage.setItem('islandStates_' + currentUser.username, JSON.stringify(islandStates));
+        localStorage.setItem('readBooklets_' + currentUser.username, JSON.stringify(readBooklets));
+    }
+
+    function loadProgress() {
+        if (!currentUser) return;
+        let savedStates = localStorage.getItem('islandStates_' + currentUser.username);
+        if (savedStates) islandStates = JSON.parse(savedStates);
+        else islandStates = new Array(50).fill(0);
+
+        let savedBooklets = localStorage.getItem('readBooklets_' + currentUser.username);
+        if (savedBooklets) readBooklets = JSON.parse(savedBooklets);
+        else readBooklets = new Array(50).fill(false);
+    }
+
     async function attemptLogin() {
         const u = document.getElementById('username').value.trim();
         const p = document.getElementById('password').value.trim();
@@ -250,6 +268,10 @@
             
             if(data && data.success) {
                 currentUser = data;
+                
+                // NEW: Load user's saved progress!
+                loadProgress();
+                
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('loading-screen').style.display = 'flex';
                 initAssets();
@@ -262,6 +284,31 @@
             err.innerText = "Network Error. Please try again.";
             err.style.display = "block";
             btn.innerText = "LOGIN";
+        }
+    }
+
+    // --- NEW: PROCEDURAL MOUNTAIN GENERATOR ---
+    function createMountains() {
+        const mountainMat1 = new THREE.MeshStandardMaterial({color: 0x2d4c1e, roughness: 0.9, flatShading: true}); 
+        const mountainMat2 = new THREE.MeshStandardMaterial({color: 0x3b5e2b, roughness: 0.9, flatShading: true}); 
+        
+        // Build 60 mountains forming a massive ring far outside the islands
+        for(let i=0; i<60; i++) {
+            let angle = (i / 60) * Math.PI * 2;
+            angle += (Math.random() - 0.5) * 0.1; // Randomize spacing
+            
+            let radius = 4800 + Math.random() * 1500; // Farther out than the islands
+            let height = 500 + Math.random() * 800; // Very tall
+            let width = 400 + Math.random() * 500; // Wide bases
+            
+            // Low poly cone geometry makes excellent mountains
+            const geo = new THREE.ConeGeometry(width, height, 4 + Math.floor(Math.random()*4));
+            const mesh = new THREE.Mesh(geo, Math.random() > 0.5 ? mountainMat1 : mountainMat2);
+            
+            mesh.position.set(Math.cos(angle) * radius, (height/2) - 100, Math.sin(angle) * radius);
+            mesh.rotation.y = Math.random() * Math.PI;
+            
+            mapGroup.add(mesh);
         }
     }
 
@@ -344,6 +391,9 @@
                     mapGroup.add(iMesh);
                 }
             }
+            
+            // Build Mountains
+            createMountains();
 
             const boatGroup = new THREE.Group();
             boatGroup.position.set(0, 0, 0);
@@ -354,12 +404,10 @@
                 boatGroup.add(customBoat);
             }
 
-            // User Logo
             const logoTex = new THREE.TextureLoader().load('logo.png');
             const logoMat = new THREE.SpriteMaterial({map: logoTex, color: 0xffffff});
             const logoSprite = new THREE.Sprite(logoMat);
             logoSprite.scale.set(1200, 450, 1); 
-            // Raised the logo higher to clear the large cruise ship
             logoSprite.position.set(0, 1200, 0); 
             boatGroup.add(logoSprite);
 
@@ -621,6 +669,7 @@
     function openBooklet(index) {
         appState = 'BOOKLET';
         readBooklets[index] = true; 
+        saveProgress(); // SAVE PROGRESS!
         
         document.getElementById('map-overlay').style.display = 'none';
         document.getElementById('booklet-screen').style.display = 'flex';
@@ -665,7 +714,10 @@
         if (selectedAnswer === correctAns) {
             wsRemainingAnswers = wsRemainingAnswers.filter(a => a !== correctAns); wsCurrentQuestion++;
             if (wsCurrentQuestion >= 10) {
-                if (islandStates[wsCurrentIsland] < 1) islandStates[wsCurrentIsland] = 1; 
+                if (islandStates[wsCurrentIsland] < 1) {
+                    islandStates[wsCurrentIsland] = 1; 
+                    saveProgress(); // SAVE PROGRESS!
+                }
                 showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!"); openMap(-1, true);
             } else { renderWorksheet(); }
         } else {
@@ -689,6 +741,8 @@
 
     async function finishIsland(timeTaken) {
         islandStates[currentIsland] = 2; 
+        saveProgress(); // SAVE PROGRESS!
+        
         document.getElementById('top-left-stats').style.display = 'none';
         showToast("🏆 You Earned a Trophy! Submitting time...");
         
