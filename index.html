@@ -29,7 +29,6 @@
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
     #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); transition: background 0.3s, color 0.3s; }
     
-    /* NEW: Driving Lives UI */
     #driving-lives { font-size: 28px; margin-top: 10px; letter-spacing: 2px; }
 
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; display: none;}
@@ -140,6 +139,19 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbzz6XNfN4vF8r4w-5gY9bQ7L93eL25XnK5j_v7bWb45v2mG5J2w9F2oFzX0Q0mJ_Y_5/exec"; 
 
+    // NEW: Smart Fetch function to auto-retry if Google Servers drop connection
+    async function safeFetch(url, retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                let res = await fetch(url);
+                return await res.json();
+            } catch (e) {
+                if (i === retries - 1) throw e;
+                await new Promise(r => setTimeout(r, 1000)); // Wait 1 second before retry
+            }
+        }
+    }
+
     let currentUser = null;
     let gameData = [];
     let leaderboardData = {}; 
@@ -153,7 +165,7 @@
     
     let gameStartTime = 0;
     let timerInterval = null;
-    let drivingLives = 3; // NEW: Lives for the driving game
+    let drivingLives = 3;
 
     let gameStarted = false;
     let isPaused = false; 
@@ -216,20 +228,21 @@
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
     async function attemptLogin() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
+        // NEW: .trim() removes invisible spaces from the keyboard!
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
         const btn = document.getElementById('login-btn');
         const err = document.getElementById('login-error');
         
         if(!u || !p) return;
-        btn.innerText = "Checking...";
+        btn.innerText = "Connecting to Server..."; 
         err.style.display = "none";
         
         try {
-            const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`);
-            const data = await res.json();
+            // NEW: Using safeFetch handles random server errors gracefully
+            const data = await safeFetch(`${API_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`);
             
-            if(data.success) {
+            if(data && data.success) {
                 currentUser = data;
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('loading-screen').style.display = 'flex';
@@ -240,7 +253,7 @@
                 btn.innerText = "LOGIN";
             }
         } catch (e) {
-            err.innerText = "Error connecting to Database. Check Apps Script!";
+            err.innerText = "Network Error. Please try again.";
             err.style.display = "block";
             btn.innerText = "LOGIN";
         }
@@ -248,12 +261,11 @@
 
     async function initAssets() {
         try {
-            const resData = await fetch(`${API_URL}?action=getGameData`);
-            const d = await resData.json();
-            if (d.success) gameData = d.islands;
+            // NEW: Using safeFetch handles random server errors gracefully
+            const d = await safeFetch(`${API_URL}?action=getGameData`);
+            if (d && d.success) gameData = d.islands;
             
-            const resLb = await fetch(`${API_URL}?action=getLeaderboard`);
-            leaderboardData = await resLb.json();
+            leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
             const [carG, t1, t2, f1, bullG, fenceG, islandG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
@@ -332,7 +344,7 @@
             document.getElementById('start-btn').style.display = 'block';
 
         } catch (error) {
-            document.getElementById('load-text').innerHTML = "Error connecting to Server.";
+            document.getElementById('load-text').innerHTML = "Error loading assets.";
         }
     }
 
@@ -389,7 +401,6 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
-            // MAIN ISLAND TOWER 
             const tower1 = createAntennaTower(100);
             tower1.position.set(pos.x, 50, pos.z); 
             
@@ -419,7 +430,6 @@
             
             mapPinsGroup.add(tower1); mapPinsGroup.add(sprite1); flagHitboxes.push(sprite1);
 
-            // LEADERBOARD SPRITE
             if (leaderboardData[i]) {
                 const lb = leaderboardData[i];
                 const cvsLb = document.createElement('canvas');
@@ -647,9 +657,8 @@
         showToast("🏆 You Earned a Trophy! Submitting time...");
         
         try {
-            await fetch(`${API_URL}?action=submitTime&island=${currentIsland}&user=${encodeURIComponent(currentUser.username)}&school=${encodeURIComponent(currentUser.school)}&time=${timeTaken}`);
-            const resLb = await fetch(`${API_URL}?action=getLeaderboard`);
-            leaderboardData = await resLb.json();
+            await safeFetch(`${API_URL}?action=submitTime&island=${currentIsland}&user=${encodeURIComponent(currentUser.username)}&school=${encodeURIComponent(currentUser.school)}&time=${timeTaken}`);
+            leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
         } catch(e) { console.log("Time submission error."); }
         
         setTimeout(() => { openMap(currentIsland); }, 2000); 
@@ -658,7 +667,7 @@
     function startDrivingGame(index) {
         currentIsland = index;
         currentQuestion = 0;
-        drivingLives = 3; // Reset lives for driving phase
+        drivingLives = 3; 
         document.getElementById('driving-lives').innerText = '❤️❤️❤️';
         
         appState = 'PLAYING';
@@ -756,7 +765,6 @@
         document.getElementById('question-box').innerText = qData.question; document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
     }
     
-    // NEW: Updated to handle Game Over Text
     function showWrongAnswerUI(isGameOver = false) {
         const qBox = document.getElementById('question-box'); 
         qBox.innerText = isGameOver ? "ގޭމް އޯވަރ! (Game Over!)" : "ނުބައި ޖަވާބު! (Wrong Answer!)"; 
@@ -835,14 +843,13 @@
                                 carGroup.translateZ(15); 
                                 isDriving = false; 
                                 
-                                // NEW: DEDUCT A DRIVING LIFE
                                 drivingLives--;
                                 document.getElementById('driving-lives').innerText = '❤️'.repeat(Math.max(0, drivingLives));
                                 
                                 if (drivingLives <= 0) {
                                     clearInterval(timerInterval);
                                     document.getElementById('timer-ui').style.display = 'none';
-                                    showWrongAnswerUI(true); // Shows Game Over
+                                    showWrongAnswerUI(true); 
                                     showToast("💀 Game Over! Too many wrong boards.");
                                     setTimeout(() => { openMap(currentIsland); }, 2000);
                                 } else {
