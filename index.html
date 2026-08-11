@@ -25,11 +25,17 @@
     #login-btn { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 15px; }
     #login-error { color: #e74c3c; font-weight: bold; margin-top: 15px; display: none; }
 
-    #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-    #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
-    #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); transition: background 0.3s, color 0.3s; }
+    /* Main UI Container */
+    #ui-container { position: absolute; top: 15px; width: 100%; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+    #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold; text-shadow: 2px 2px 4px black;}
     
-    #driving-lives { font-size: 28px; margin-top: 10px; letter-spacing: 2px; }
+    /* NEW: Transparent Question Box with thick black outline for readability */
+    #question-box { background: transparent; color: white; padding: 10px; font-size: 28px; font-weight: bold; text-align: center; border: none; direction: rtl; width: 95%; max-width: 800px; text-shadow: 3px 3px 6px rgba(0,0,0,1), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; transition: color 0.3s; }
+
+    /* NEW: Top Left Stats Container (Time + Lives) */
+    #top-left-stats { position: absolute; top: 15px; left: 15px; z-index: 100; display: none; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+    #timer-ui { color: #f1c40f; font-size: 32px; font-weight: bold; text-shadow: 2px 2px 4px black; font-family: Arial; }
+    #driving-lives { font-size: 28px; letter-spacing: 2px; text-shadow: 2px 2px 4px black;}
 
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; display: none;}
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
@@ -44,7 +50,6 @@
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
     
-    #timer-ui { position: absolute; top: 160px; width: 100%; text-align: center; color: #f1c40f; font-size: 32px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 90; display: none; pointer-events: none; font-family: Arial;}
     #tap-indicator { position: absolute; top: 60%; width: 100%; text-align: center; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 50; animation: blink 1.5s infinite; pointer-events: none; display: none; }
     @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.2;} 100% {opacity: 1;} }
 
@@ -114,12 +119,16 @@
       <div id="ws-answers-grid" id="answers-container"></div>
   </div>
 
-  <div id="timer-ui" dir="ltr">⏱️ 00:00</div>
+  <!-- NEW: Grouped Timer and Lives to the Top Left -->
+  <div id="top-left-stats" dir="ltr">
+      <div id="timer-ui">⏱️ 00:00</div>
+      <div id="driving-lives">❤️❤️❤️</div>
+  </div>
 
+  <!-- Transparent Center UI -->
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
     <div id="question-box">Loading...</div>
-    <div id="driving-lives" dir="ltr">❤️❤️❤️</div>
   </div>
   
   <div id="tap-indicator">Tap sides to steer.<br>Swipe middle to look around!</div>
@@ -137,10 +146,8 @@
   </div>
 
   <script>
-    // Successfully updated with your correct API URL!
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
-    // Smart Fetch function to auto-retry if Google Servers drop connection
     async function safeFetch(url, retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
@@ -148,7 +155,7 @@
                 return await res.json();
             } catch (e) {
                 if (i === retries - 1) throw e;
-                await new Promise(r => setTimeout(r, 1000)); // Wait 1 second before retry
+                await new Promise(r => setTimeout(r, 1000));
             }
         }
     }
@@ -399,7 +406,6 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
-            // MAIN ISLAND TOWER 
             const tower1 = createAntennaTower(100);
             tower1.position.set(pos.x, 50, pos.z); 
             
@@ -429,7 +435,6 @@
             
             mapPinsGroup.add(tower1); mapPinsGroup.add(sprite1); flagHitboxes.push(sprite1);
 
-            // LEADERBOARD SPRITE
             if (leaderboardData[i]) {
                 const lb = leaderboardData[i];
                 const cvsLb = document.createElement('canvas');
@@ -482,7 +487,7 @@
             document.getElementById('pause-btn').style.background = "#e74c3c"; 
         }
         clearInterval(timerInterval);
-        document.getElementById('timer-ui').style.display = 'none';
+        document.getElementById('top-left-stats').style.display = 'none';
         openMap(currentIsland); 
     }
 
@@ -495,6 +500,7 @@
         document.getElementById('left-controls').style.display = 'none';
         document.getElementById('speed-container').style.display = 'none';
         document.getElementById('tap-indicator').style.display = 'none';
+        document.getElementById('top-left-stats').style.display = 'none';
         document.getElementById('map-overlay').style.display = 'block';
         
         if(engineAudio) engineAudio.pause();
@@ -653,7 +659,7 @@
 
     async function finishIsland(timeTaken) {
         islandStates[currentIsland] = 2; 
-        document.getElementById('timer-ui').style.display = 'none';
+        document.getElementById('top-left-stats').style.display = 'none';
         showToast("🏆 You Earned a Trophy! Submitting time...");
         
         try {
@@ -680,7 +686,8 @@
         document.getElementById('speed-container').style.display = 'flex'; 
         document.getElementById('tap-indicator').style.display = 'block'; 
         
-        document.getElementById('timer-ui').style.display = 'block';
+        // Show the top left stats container
+        document.getElementById('top-left-stats').style.display = 'flex';
         gameStartTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
 
@@ -762,20 +769,22 @@
             return;
         }
         let qData = gameData[currentIsland][currentQuestion];
-        document.getElementById('question-box').innerText = qData.question; document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
+        document.getElementById('question-box').innerText = qData.question; 
+        document.getElementById('question-box').style.color = "white"; // Reset to white
+        document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
     }
     
     function showWrongAnswerUI(isGameOver = false) {
         const qBox = document.getElementById('question-box'); 
         qBox.innerText = isGameOver ? "ގޭމް އޯވަރ! (Game Over!)" : "ނުބައި ޖަވާބު! (Wrong Answer!)"; 
-        qBox.style.background = "#e74c3c"; 
-        qBox.style.color = "white";
+        
+        // RED TEXT INSTEAD OF RED BACKGROUND
+        qBox.style.color = "#e74c3c"; 
         
         if (!isGameOver) {
             setTimeout(() => { 
                 qBox.innerText = gameData[currentIsland][currentQuestion].question; 
-                qBox.style.background = "rgba(255,255,255,0.95)"; 
-                qBox.style.color = "black"; 
+                qBox.style.color = "white"; // BACK TO WHITE TEXT
             }, 1500);
         }
     }
@@ -848,7 +857,7 @@
                                 
                                 if (drivingLives <= 0) {
                                     clearInterval(timerInterval);
-                                    document.getElementById('timer-ui').style.display = 'none';
+                                    document.getElementById('top-left-stats').style.display = 'none';
                                     showWrongAnswerUI(true); 
                                     showToast("💀 Game Over! Too many wrong boards.");
                                     setTimeout(() => { openMap(currentIsland); }, 2000);
