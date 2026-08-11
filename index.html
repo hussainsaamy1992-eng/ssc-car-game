@@ -121,6 +121,7 @@
 
     let gameData = [];
     
+    // 0 = Locked, 1 = Unlocked, 2 = Completed(Trophy)
     let islandStates = new Array(50).fill(0); 
     let readBooklets = new Array(50).fill(false);
     
@@ -180,6 +181,13 @@
 
     const carGroup = new THREE.Group(); gameGroup.add(carGroup);
     const gltfLoader = new THREE.GLTFLoader();
+
+    // --- NEW: Telecom Antenna Generator Materials ---
+    // Defined globally so we don't recreate them 150 times, keeping performance smooth!
+    const towerMatRed = new THREE.MeshStandardMaterial({color: 0xcc0000, roughness: 0.8, flatShading: true});
+    const towerMatWhite = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.8, flatShading: true});
+    const towerEdgeMat = new THREE.LineBasicMaterial({ color: 0x222222, linewidth: 2 });
+    const dishMat = new THREE.MeshStandardMaterial({color: 0x555555});
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
@@ -286,6 +294,49 @@
         const f = m.clone(); f.position.set(x,0,z); f.rotation.y=r; f.scale.set(5, 12, 5); gameGroup.add(f); 
     }
 
+    // --- NEW: 3D Antenna Tower Generator ---
+    // Builds a Red/White lattice-style telecom tower dynamically
+    function createAntennaTower(height) {
+        const towerGroup = new THREE.Group();
+        const segments = 5;
+        const segmentHeight = height / segments;
+        const bottomRadius = height * 0.05; // Base is 5% of height
+        const topRadius = height * 0.01;    // Top is 1% of height
+
+        // 1. Build the Red & White striped tower body
+        for (let i = 0; i < segments; i++) {
+            const rBottom = bottomRadius - ((bottomRadius - topRadius) * (i / segments));
+            const rTop = bottomRadius - ((bottomRadius - topRadius) * ((i + 1) / segments));
+
+            const geo = new THREE.CylinderGeometry(rTop, rBottom, segmentHeight, 4); // 4-sided to look like lattice
+            const mesh = new THREE.Mesh(geo, i % 2 === 0 ? towerMatRed : towerMatWhite);
+            
+            // Add dark edges to simulate the steel bars/lattice structure
+            const edges = new THREE.EdgesGeometry(geo);
+            const line = new THREE.LineSegments(edges, towerEdgeMat);
+            mesh.add(line);
+
+            mesh.position.y = (i * segmentHeight) + (segmentHeight / 2) - (height / 2);
+            mesh.rotation.y = Math.PI / 4; // Rotate diagonally for better visual profile
+            towerGroup.add(mesh);
+        }
+
+        // 2. Add Telecom / Microwave Dishes near the top
+        const dishGeo = new THREE.CylinderGeometry(height * 0.04, height * 0.02, height * 0.02, 8);
+        const dish1 = new THREE.Mesh(dishGeo, dishMat);
+        dish1.rotation.x = Math.PI / 2;
+        dish1.position.set(height * 0.03, (height / 2) - (height * 0.15), height * 0.03);
+        towerGroup.add(dish1);
+
+        const dish2 = new THREE.Mesh(dishGeo, dishMat);
+        dish2.rotation.x = Math.PI / 2;
+        dish2.rotation.z = Math.PI / 2;
+        dish2.position.set(-height * 0.03, (height / 2) - (height * 0.25), -height * 0.03);
+        towerGroup.add(dish2);
+
+        return towerGroup;
+    }
+
     function generateMapPins() {
         for(let i = mapPinsGroup.children.length - 1; i >= 0; i--) { 
             mapPinsGroup.remove(mapPinsGroup.children[i]); 
@@ -296,11 +347,9 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
-            const pole1 = new THREE.Mesh(
-                new THREE.CylinderGeometry(2, 2, 100), 
-                new THREE.MeshBasicMaterial({color: 0xffffff})
-            );
-            pole1.position.set(pos.x, 50, pos.z);
+            // --- 1. MAIN ISLAND TOWER (Driving/Status) ---
+            const tower1 = createAntennaTower(100);
+            tower1.position.set(pos.x, 50, pos.z); // y=50 centers the 100 height tower properly
             
             const cvs1 = document.createElement('canvas');
             cvs1.width = 128; cvs1.height = 128;
@@ -334,13 +383,15 @@
             sprite1.position.set(pos.x, 120, pos.z);
             sprite1.userData = { type: 'driving', islandIndex: i }; 
             
-            mapPinsGroup.add(pole1);
+            mapPinsGroup.add(tower1); // Replaced simple pole with Antenna Tower
             mapPinsGroup.add(sprite1);
             flagHitboxes.push(sprite1);
 
+            // --- 2. WORKSHEET & BOOKLET TOWERS ---
             if (state < 2) {
-                const pole2 = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 60), new THREE.MeshBasicMaterial({color: 0xcccccc}));
-                pole2.position.set(pos.x + 50, 30, pos.z + 50); 
+                // RED WORKSHEET TOWER (📝)
+                const tower2 = createAntennaTower(60);
+                tower2.position.set(pos.x + 50, 30, pos.z + 50); 
                 
                 const cvs2 = document.createElement('canvas');
                 cvs2.width = 128; cvs2.height = 128;
@@ -356,10 +407,13 @@
                 sprite2.position.set(pos.x + 50, 80, pos.z + 50);
                 sprite2.userData = { type: 'worksheet', islandIndex: i }; 
                 
-                mapPinsGroup.add(pole2); mapPinsGroup.add(sprite2); flagHitboxes.push(sprite2);
+                mapPinsGroup.add(tower2); 
+                mapPinsGroup.add(sprite2); 
+                flagHitboxes.push(sprite2);
 
-                const pole3 = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 60), new THREE.MeshBasicMaterial({color: 0xcccccc}));
-                pole3.position.set(pos.x - 50, 30, pos.z + 50); 
+                // BLUE BOOKLET TOWER (📖)
+                const tower3 = createAntennaTower(60);
+                tower3.position.set(pos.x - 50, 30, pos.z + 50); 
                 
                 const cvs3 = document.createElement('canvas');
                 cvs3.width = 128; cvs3.height = 128;
@@ -375,7 +429,9 @@
                 sprite3.position.set(pos.x - 50, 80, pos.z + 50);
                 sprite3.userData = { type: 'booklet', islandIndex: i }; 
                 
-                mapPinsGroup.add(pole3); mapPinsGroup.add(sprite3); flagHitboxes.push(sprite3);
+                mapPinsGroup.add(tower3); 
+                mapPinsGroup.add(sprite3); 
+                flagHitboxes.push(sprite3);
             }
         }
     }
@@ -391,7 +447,6 @@
         openMap(currentIsland); 
     }
 
-    // NEW: Added focusIslandIndex and keepCamera variables to remember map position!
     function openMap(focusIslandIndex = -1, keepCamera = false) {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('worksheet-screen').style.display = 'none';
@@ -413,16 +468,13 @@
 
         generateMapPins(); 
         
-        // --- SMART CAMERA LOGIC ---
         if (keepCamera) {
-            // Do absolutely nothing to the camera, leave it exactly where the user scrolled it!
+            // Keep existing camera config
         } else if (focusIslandIndex !== -1 && islandMapPositions[focusIslandIndex]) {
-            // Coming back from driving: Jump the camera to the specific island they just played
             let pos = islandMapPositions[focusIslandIndex];
             camera.position.set(pos.x, 1500, pos.z + 1000);
             controls.target.set(pos.x, 0, pos.z);
         } else {
-            // First time loading the game: Look at the center of the world
             camera.position.set(0, 3000, 2000);
             controls.target.set(0, 0, 0);
         }
@@ -435,7 +487,7 @@
         controls.maxPolarAngle = Math.PI / 2.2; 
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
-        controls.update(); // Sync orbit controls
+        controls.update(); 
 
         if (!gameStarted) {
             gameStarted = true;
@@ -513,7 +565,6 @@
     }
 
     function closeBooklet() {
-        // Pass true to keep the camera exactly where it is!
         openMap(-1, true);
     }
 
@@ -570,7 +621,6 @@
             if (wsCurrentQuestion >= 10) {
                 if (islandStates[wsCurrentIsland] < 1) islandStates[wsCurrentIsland] = 1; 
                 showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!");
-                // Keep the camera exactly where it is when they unlock it!
                 openMap(-1, true);
             } else {
                 renderWorksheet(); 
@@ -590,7 +640,6 @@
     }
 
     function closeWorksheet() {
-        // Pass true to keep the camera exactly where it is!
         openMap(-1, true);
     }
 
@@ -737,7 +786,6 @@
         if (currentQuestion >= gameData[currentIsland].length) {
             islandStates[currentIsland] = 2; 
             showToast("🏆 You Earned a Trophy! Returning to Map...");
-            // Returns to map and centers on the island you just played
             setTimeout(() => { openMap(currentIsland); }, 2000); 
             return;
         }
