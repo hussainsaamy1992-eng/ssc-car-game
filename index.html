@@ -30,7 +30,7 @@
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold; text-shadow: 2px 2px 4px black;}
     
     /* Transparent Question Box */
-    #question-box { background: transparent; color: white; padding: 10px; font-size: 28px; font-weight: bold; text-align: center; border: none; direction: rtl; width: 95%; max-width: 800px; text-shadow: 3px 3px 6px rgba(0,0,0,1), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; transition: color 0.3s; }
+    #question-box { background: transparent; color: white; padding: 10px; border-radius: 15px; font-size: 28px; font-weight: bold; text-align: center; border: none; direction: rtl; width: 95%; max-width: 800px; text-shadow: 3px 3px 6px rgba(0,0,0,1), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; transition: color 0.3s, background 0.3s; }
 
     /* Top Left Stats Container */
     #top-left-stats { position: absolute; top: 15px; left: 15px; z-index: 100; display: none; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
@@ -78,7 +78,6 @@
 </head>
 <body>
 
-  <audio id="audio-engine" src="https://hussainsaamy.github.io/game-assets/sound.mp3" loop preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
   <!-- Login Screen -->
@@ -148,6 +147,46 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
+    // --- NEW: SYNTHETIC WEB AUDIO ENGINE ---
+    let audioCtx;
+    let engineOsc;
+    let engineGain;
+
+    function initEngineSound() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            engineOsc = audioCtx.createOscillator();
+            engineOsc.type = 'sawtooth';
+            engineOsc.frequency.setValueAtTime(40, audioCtx.currentTime);
+
+            let filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+
+            engineGain = audioCtx.createGain();
+            engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            engineOsc.connect(filter);
+            filter.connect(engineGain);
+            engineGain.connect(audioCtx.destination);
+            engineOsc.start();
+        }
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function updateEngineSound(driving, speed) {
+        if (!audioCtx || !engineGain) return;
+        if (driving && !isPaused) {
+            // Smoothly fade in and pitch up based on speed
+            engineGain.gain.setTargetAtTime(0.2, audioCtx.currentTime, 0.1);
+            engineOsc.frequency.setTargetAtTime(40 + (speed * 40), audioCtx.currentTime, 0.1);
+        } else {
+            // Instantly go silent when not driving
+            engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        }
+    }
+    // ----------------------------------------
+
     async function safeFetch(url, retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
@@ -190,7 +229,6 @@
     let camPitchOffset = 0;
     let targetCamPitchOffset = 0;
 
-    let engineAudio = document.getElementById('audio-engine');
     let bullAudio = document.getElementById('audio-bull');
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
@@ -235,7 +273,6 @@
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
-    // --- SAVE PROGRESS SYSTEM (LOCAL STORAGE) ---
     function saveProgress() {
         if (!currentUser) return;
         localStorage.setItem('islandStates_' + currentUser.username, JSON.stringify(islandStates));
@@ -268,8 +305,6 @@
             
             if(data && data.success) {
                 currentUser = data;
-                
-                // NEW: Load user's saved progress!
                 loadProgress();
                 
                 document.getElementById('login-screen').style.display = 'none';
@@ -287,21 +322,18 @@
         }
     }
 
-    // --- NEW: PROCEDURAL MOUNTAIN GENERATOR ---
     function createMountains() {
         const mountainMat1 = new THREE.MeshStandardMaterial({color: 0x2d4c1e, roughness: 0.9, flatShading: true}); 
         const mountainMat2 = new THREE.MeshStandardMaterial({color: 0x3b5e2b, roughness: 0.9, flatShading: true}); 
         
-        // Build 60 mountains forming a massive ring far outside the islands
         for(let i=0; i<60; i++) {
             let angle = (i / 60) * Math.PI * 2;
-            angle += (Math.random() - 0.5) * 0.1; // Randomize spacing
+            angle += (Math.random() - 0.5) * 0.1; 
             
-            let radius = 4800 + Math.random() * 1500; // Farther out than the islands
-            let height = 500 + Math.random() * 800; // Very tall
-            let width = 400 + Math.random() * 500; // Wide bases
+            let radius = 4800 + Math.random() * 1500; 
+            let height = 500 + Math.random() * 800; 
+            let width = 400 + Math.random() * 500; 
             
-            // Low poly cone geometry makes excellent mountains
             const geo = new THREE.ConeGeometry(width, height, 4 + Math.floor(Math.random()*4));
             const mesh = new THREE.Mesh(geo, Math.random() > 0.5 ? mountainMat1 : mountainMat2);
             
@@ -392,7 +424,6 @@
                 }
             }
             
-            // Build Mountains
             createMountains();
 
             const boatGroup = new THREE.Group();
@@ -566,6 +597,15 @@
         }
         clearInterval(timerInterval);
         document.getElementById('top-left-stats').style.display = 'none';
+        
+        // INSTANTLY KILL AUDIO ENGINE
+        if(audioCtx) updateEngineSound(false, 0);
+
+        // RESET QUESTION BOX STYLE IN CASE THEY QUIT AFTER A WRONG ANSWER
+        const qBox = document.getElementById('question-box');
+        qBox.style.color = "white";
+        qBox.style.background = "transparent";
+
         openMap(currentIsland); 
     }
 
@@ -581,8 +621,9 @@
         document.getElementById('top-left-stats').style.display = 'none';
         document.getElementById('map-overlay').style.display = 'block';
         
-        if(engineAudio) engineAudio.pause();
         if(bullAudio) bullAudio.pause();
+        if(audioCtx) updateEngineSound(false, 0); // MUTE SYNTH ENGINE
+        
         isDriving = false;
 
         gameGroup.visible = false;
@@ -669,7 +710,7 @@
     function openBooklet(index) {
         appState = 'BOOKLET';
         readBooklets[index] = true; 
-        saveProgress(); // SAVE PROGRESS!
+        saveProgress(); 
         
         document.getElementById('map-overlay').style.display = 'none';
         document.getElementById('booklet-screen').style.display = 'flex';
@@ -716,7 +757,7 @@
             if (wsCurrentQuestion >= 10) {
                 if (islandStates[wsCurrentIsland] < 1) {
                     islandStates[wsCurrentIsland] = 1; 
-                    saveProgress(); // SAVE PROGRESS!
+                    saveProgress(); 
                 }
                 showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!"); openMap(-1, true);
             } else { renderWorksheet(); }
@@ -741,7 +782,7 @@
 
     async function finishIsland(timeTaken) {
         islandStates[currentIsland] = 2; 
-        saveProgress(); // SAVE PROGRESS!
+        saveProgress(); 
         
         document.getElementById('top-left-stats').style.display = 'none';
         showToast("🏆 You Earned a Trophy! Submitting time...");
@@ -760,6 +801,11 @@
         drivingLives = 3; 
         document.getElementById('driving-lives').innerText = '❤️❤️❤️';
         
+        // RESET QUESTION BOX STYLE
+        const qBox = document.getElementById('question-box');
+        qBox.style.color = "white";
+        qBox.style.background = "transparent";
+        
         appState = 'PLAYING';
         mapGroup.visible = false;
         gameGroup.visible = true;
@@ -774,9 +820,10 @@
         gameStartTime = Date.now();
         timerInterval = setInterval(updateTimer, 1000);
 
-        engineAudio.volume = 1.0;
+        // START SYNTH AUDIO
+        initEngineSound();
+
         bullAudio.volume = 0.0;
-        engineAudio.play().catch(e => console.log(e));
         bullAudio.play().catch(e => console.log(e));
 
         isDriving = false; 
@@ -792,14 +839,16 @@
         const btn = document.getElementById('pause-btn');
         if (isPaused) {
             btn.innerText = "▶ RESUME"; btn.style.background = "#27ae60"; btn.style.borderColor = "#2ecc71";
-            engineAudio.pause(); bullAudio.pause();
+            bullAudio.pause();
+            if(audioCtx) updateEngineSound(false, 0); // MUTE ENGINE
+
             controls.enabled = true; controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
             controls.minDistance = 2; controls.maxDistance = 200; 
             controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); controls.update(); 
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
             btn.innerText = "⏸ PAUSE"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b";
-            engineAudio.play(); bullAudio.play();
+            bullAudio.play();
             controls.enabled = false;
             if(!isDriving) document.getElementById('tap-indicator').style.display = 'block';
         }
@@ -846,8 +895,22 @@
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
+            
+            // --- NEW: INSTANT TROPHY LOGIC ---
             clearInterval(timerInterval);
             let timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
+            
+            // STOP THE CAR
+            isDriving = false;
+            activeSteering = 0;
+            if(audioCtx) updateEngineSound(false, 0);
+            
+            // SHOW THE GOLD TROPHY IMMEDIATELY
+            const qBox = document.getElementById('question-box');
+            qBox.innerText = "🏆 ލެވެލް ފުރިހަމަވީ! (Level Complete!)"; 
+            qBox.style.color = "gold"; 
+            qBox.style.background = "rgba(0,0,0,0.8)";
+            
             finishIsland(timeTaken);
             return;
         }
@@ -913,8 +976,10 @@
                 camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1; camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
                 let speed = parseFloat(document.getElementById('speed-slider').value);
                 
+                // UPDATE ENGINE SYNTH AUDIO
+                if (audioCtx) updateEngineSound(isDriving, speed);
+                
                 if (isDriving) {
-                    if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
                     if (activeSteering === 1) carGroup.rotation.y += 0.04; else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
 
                     const oldPos = carGroup.position.clone(); carGroup.translateZ(-speed);
@@ -952,7 +1017,7 @@
                     }
 
                     if (correctHit) { gameGroup.remove(signboardsArray[hitIndex].mesh); signboardsArray.splice(hitIndex, 1); currentQuestion++; updateQuestionUI(); }
-                } else { if(engineAudio) engineAudio.playbackRate = 0.5; }
+                }
 
                 let mD = 1000; bullsArray.forEach(b => { let d = carGroup.position.distanceTo(b.mesh.position); if(d < mD) mD = d; }); bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
