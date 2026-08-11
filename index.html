@@ -345,7 +345,6 @@
             
             leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
-            // LOAD NEW CAR MODEL HERE
             const [carG, t1, t2, f1, fenceG, islandG, boatG] = await Promise.all([
                 loadModel('newcar.glb'), 
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
@@ -363,9 +362,8 @@
 
             if(carG) {
                 const myCar = carG.scene;
-                // IF YOUR NEW CAR IS TOO BIG OR SMALL, CHANGE THESE NUMBERS
-                myCar.scale.set(4, 4, 4); 
-                // IF YOUR NEW CAR DRIVES BACKWARDS, CHANGE Math.PI to 0
+                // FIX: Drastically scaled down the newcar model from 4 to 0.05
+                myCar.scale.set(0.05, 0.05, 0.05); 
                 myCar.rotation.y = Math.PI; 
                 carGroup.add(myCar);
             }
