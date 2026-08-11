@@ -272,7 +272,6 @@
             
             leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
-            // LOAD NEW BOAT MODEL ALONG WITH OTHERS
             const [carG, t1, t2, f1, bullG, fenceG, islandG, boatG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
@@ -281,7 +280,7 @@
                 loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Island.glb'),
-                loadModel('boat.glb') // Custom User Boat
+                loadModel('boat.glb') 
             ]);
 
             const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
@@ -346,13 +345,11 @@
                 }
             }
 
-            // --- CUSTOM WOODEN BOAT & LOGO FROM GLB ---
             const boatGroup = new THREE.Group();
             boatGroup.position.set(0, 0, 0);
 
             if (boatG) {
                 const customBoat = THREE.SkeletonUtils.clone(boatG.scene);
-                // CHANGE THESE NUMBERS IF YOUR BOAT IS TOO BIG OR TOO SMALL
                 customBoat.scale.set(50, 50, 50); 
                 boatGroup.add(customBoat);
             }
@@ -362,10 +359,10 @@
             const logoMat = new THREE.SpriteMaterial({map: logoTex, color: 0xffffff});
             const logoSprite = new THREE.Sprite(logoMat);
             logoSprite.scale.set(1200, 450, 1); 
-            logoSprite.position.set(0, 500, 0); 
+            // Raised the logo higher to clear the large cruise ship
+            logoSprite.position.set(0, 1200, 0); 
             boatGroup.add(logoSprite);
 
-            // Custom animation logic directly inside a mixer object
             mixers.push({
                 update: function(delta) {
                     const time = Date.now() * 0.0015;
