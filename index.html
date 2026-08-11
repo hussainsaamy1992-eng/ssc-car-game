@@ -78,9 +78,6 @@
 </head>
 <body>
 
-  <!-- Background Bull Sound -->
-  <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
-
   <!-- Login Screen -->
   <div id="login-screen">
     <div class="login-box" dir="ltr">
@@ -227,8 +224,6 @@
     let targetCamAngleOffset = 0;
     let camPitchOffset = 0;
     let targetCamPitchOffset = 0;
-
-    let bullAudio = document.getElementById('audio-bull');
     
     const signColors = ["#1B5E20", "#0D47A1", "#B71C1C", "#4A148C", "#E65100", "#006064", "#212121"];
     
@@ -245,7 +240,7 @@
     const mapGroup = new THREE.Group(); scene.add(mapGroup);
     const mapPinsGroup = new THREE.Group(); mapGroup.add(mapPinsGroup);
     
-    const signboardsArray = [], treesArray = [], bullsArray = [], mixers = [];
+    const signboardsArray = [], treesArray = [], mixers = [];
     let islandMapPositions = [];
     let flagHitboxes = []; 
 
@@ -350,12 +345,12 @@
             
             leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
-            const [carG, t1, t2, f1, bullG, fenceG, islandG, boatG] = await Promise.all([
+            // Removed the Bull model from Promise.all
+            const [carG, t1, t2, f1, fenceG, islandG, boatG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
-                loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Island.glb'),
                 loadModel('boat.glb') 
@@ -375,18 +370,6 @@
             if(t1) for(let i=0; i<25; i++) spawnDeco(t1.scene, 5, 7, treesArray);
             if(t2) for(let i=0; i<25; i++) spawnDeco(t2.scene, 5, 7, treesArray);
             if(f1) for(let i=0; i<50; i++) spawnDeco(f1.scene, 2, 0, null);
-
-            if(bullG) { 
-                [160, -160].forEach(x => { 
-                    const b = THREE.SkeletonUtils.clone(bullG.scene); 
-                    b.position.set(x, 0, -60); b.scale.set(2.5, 2.5, 2.5); 
-                    gameGroup.add(b); bullsArray.push({mesh:b, radius:8}); 
-                    if(bullG.animations.length){ 
-                        const m = new THREE.AnimationMixer(b); 
-                        m.clipAction(bullG.animations[0]).play(); mixers.push(m); 
-                    }
-                }); 
-            }
 
             if(fenceG) {
                 const h = MAP_SIZE/2;
@@ -618,7 +601,6 @@
         document.getElementById('top-left-stats').style.display = 'none';
         document.getElementById('map-overlay').style.display = 'block';
         
-        if(bullAudio) bullAudio.pause();
         if(audioCtx) updateEngineSound(false, 0); 
         
         isDriving = false;
@@ -818,10 +800,6 @@
 
         initEngineSound();
 
-        // Reduce bull volume directly here
-        bullAudio.volume = 0.0;
-        bullAudio.play().catch(e => console.log(e));
-
         isDriving = false; 
         isPaused = false;
         cameraMode = 0; 
@@ -835,7 +813,6 @@
         const btn = document.getElementById('pause-btn');
         if (isPaused) {
             btn.innerText = "▶ RESUME"; btn.style.background = "#27ae60"; btn.style.borderColor = "#2ecc71";
-            bullAudio.pause();
             if(audioCtx) updateEngineSound(false, 0); 
 
             controls.enabled = true; controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -844,7 +821,6 @@
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
             btn.innerText = "⏸ PAUSE"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b";
-            bullAudio.play();
             controls.enabled = false;
             if(!isDriving) document.getElementById('tap-indicator').style.display = 'block';
         }
@@ -891,6 +867,7 @@
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
+            
             clearInterval(timerInterval);
             let timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
             
@@ -975,7 +952,6 @@
 
                     const oldPos = carGroup.position.clone(); carGroup.translateZ(-speed);
                     for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
-                    for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
                     if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
 
                     let hitIndex = -1; let correctHit = false;
@@ -1009,10 +985,6 @@
 
                     if (correctHit) { gameGroup.remove(signboardsArray[hitIndex].mesh); signboardsArray.splice(hitIndex, 1); currentQuestion++; updateQuestionUI(); }
                 }
-
-                // FIX: Apply the 15% maximum volume to the bull sound based on distance
-                let mD = 1000; bullsArray.forEach(b => { let d = carGroup.position.distanceTo(b.mesh.position); if(d < mD) mD = d; }); 
-                bullAudio.volume = Math.max(0, 1 - (mD / 120)) * 0.15; 
 
                 const cy = carGroup.rotation.y + camAngleOffset; 
                 if (cameraMode === 0) {
