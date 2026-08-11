@@ -17,11 +17,19 @@
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0a5e9e; touch-action: none; font-family: 'Faruma', 'MV Boli', 'Noto Sans Thaana', sans-serif !important; }
     canvas { display: block; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1;}
     
+    /* Login Screen */
+    #login-screen { position: absolute; width: 100%; height: 100%; background: linear-gradient(135deg, #1abc9c, #2980b9); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .login-box { background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 85%; max-width: 400px; }
+    .login-box h1 { color: #2c3e50; margin-bottom: 20px; }
+    .login-input { width: 90%; padding: 15px; margin: 10px 0; border: 2px solid #bdc3c7; border-radius: 10px; font-size: 18px; text-align: center;}
+    #login-btn { width: 100%; padding: 15px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+    #login-error { color: #e74c3c; font-weight: bold; margin-top: 15px; display: none; }
+
     #ui-container { position: absolute; top: 15px; width: 100%; color: white; text-shadow: 2px 2px 4px black; z-index: 100; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
     #trophy { background: rgba(0,0,0,0.8); padding: 5px 20px; border-radius: 20px; font-size: 18px; font-weight: bold; margin-bottom: 10px; color: gold; border: 1px solid gold;}
     #question-box { background: rgba(255,255,255,0.95); color: black; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: bold; text-align: center; border: 3px solid #333; text-shadow: none; direction: rtl; width: 85%; max-width: 600px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); transition: background 0.3s, color 0.3s; }
     
-    #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; }
+    #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; display: none;}
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
     #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 8px; }
@@ -34,15 +42,14 @@
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
     
+    #timer-ui { position: absolute; top: 120px; width: 100%; text-align: center; color: #f1c40f; font-size: 32px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 90; display: none; pointer-events: none; font-family: Arial;}
     #tap-indicator { position: absolute; top: 60%; width: 100%; text-align: center; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 50; animation: blink 1.5s infinite; pointer-events: none; display: none; }
     @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.2;} 100% {opacity: 1;} }
 
     #map-overlay { position: absolute; top: 15px; width: 100%; text-align: center; color: white; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 4px black; z-index: 100; display: none; pointer-events: none; }
     #map-overlay span { background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 15px; border: 2px solid #3498db; }
-    
     #toast-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(231, 76, 60, 0.95); color: white; font-size: 24px; font-weight: bold; padding: 20px 40px; border-radius: 15px; z-index: 999; display: none; text-align: center; border: 3px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.5); pointer-events: none;}
 
-    /* Worksheet UI */
     #worksheet-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fdfbf7; z-index: 400; display: none; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; overflow-y: auto; font-family: inherit; }
     #ws-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     #ws-back-btn { background: #f39c12; color: white; padding: 12px 20px; border-radius: 10px; font-weight: bold; border: none; font-size: 18px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
@@ -52,7 +59,6 @@
     #ws-answers-grid { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 600px; }
     .ws-answer-btn { background: #2ecc71; color: white; padding: 18px; border-radius: 10px; border: none; font-size: 22px; cursor: pointer; font-family: inherit; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: background 0.3s; text-align: right;}
 
-    /* Booklet Study UI */
     #booklet-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #e8f4f8; z-index: 400; display: none; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; overflow-y: auto; font-family: inherit; }
     #bk-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     #bk-back-btn { background: #3498db; color: white; padding: 12px 20px; border-radius: 10px; font-weight: bold; border: none; font-size: 18px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
@@ -68,25 +74,34 @@
   <audio id="audio-engine" src="https://hussainsaamy.github.io/game-assets/sound.mp3" loop preload="auto" crossorigin="anonymous"></audio>
   <audio id="audio-bull" src="https://hussainsaamy.github.io/game-assets/bull.mp3" loop preload="auto" crossorigin="anonymous"></audio>
 
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-box" dir="ltr">
+        <h1>3D Island Drive</h1>
+        <p>Login to compete!</p>
+        <input type="text" id="username" class="login-input" placeholder="Username">
+        <input type="password" id="password" class="login-input" placeholder="Password">
+        <button id="login-btn" onclick="attemptLogin()">LOGIN</button>
+        <div id="login-error">Incorrect Username or Password!</div>
+    </div>
+  </div>
+
   <div id="loading-screen">
-    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Building 3D Atoll...</span>
+    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Loading Assets...</span>
     <button id="start-btn" onclick="openMap()">OPEN MAP</button>
   </div>
 
   <div id="map-overlay"><span>🗺️ Double-Tap to Play!</span></div>
-  <div id="toast-msg">Complete the Worksheet 📝 first to unlock this Island!</div>
+  <div id="toast-msg"></div>
 
-  <!-- Booklet Study Screen -->
   <div id="booklet-screen">
       <div id="bk-header" dir="ltr">
           <button id="bk-back-btn" onclick="closeBooklet()">✅ DONE READING</button>
           <div id="bk-title">Island 1 - Study Guide</div>
       </div>
-      <div id="bk-content" dir="rtl">
-      </div>
+      <div id="bk-content" dir="rtl"></div>
   </div>
 
-  <!-- Worksheet Screen -->
   <div id="worksheet-screen">
       <div id="ws-header" dir="ltr">
           <button id="ws-back-btn" onclick="closeWorksheet()">🗺️ MAP</button>
@@ -96,6 +111,8 @@
       <div id="ws-question-box">Question loads here</div>
       <div id="ws-answers-grid" id="answers-container"></div>
   </div>
+
+  <div id="timer-ui" dir="ltr">⏱️ 00:00</div>
 
   <div id="ui-container" style="display: none;">
     <div id="trophy" dir="ltr">🏆 Island <span id="island-counter">1 / 50</span></div>
@@ -119,13 +136,21 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
+    let currentUser = null;
     let gameData = [];
+    let leaderboardData = {}; 
+    
     let islandStates = new Array(50).fill(0); 
     let readBooklets = new Array(50).fill(false);
-    let appState = 'LOADING'; 
+    let appState = 'LOGIN'; 
 
     let currentIsland = 0;
     let currentQuestion = 0;
+    
+    // Timer Logic
+    let gameStartTime = 0;
+    let timerInterval = null;
+
     let gameStarted = false;
     let isPaused = false; 
     let isDriving = false; 
@@ -171,8 +196,6 @@
     controls.enabled = false; 
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    
-    // FIX: Lock map panning strictly to horizontal movement
     controls.screenSpacePanning = false;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
@@ -188,11 +211,48 @@
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
+    // --- LOGIN SYSTEM ---
+    async function attemptLogin() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        const btn = document.getElementById('login-btn');
+        const err = document.getElementById('login-error');
+        
+        if(!u || !p) return;
+        btn.innerText = "Checking...";
+        err.style.display = "none";
+        
+        try {
+            const res = await fetch(`${API_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`);
+            const data = await res.json();
+            
+            if(data.success) {
+                currentUser = data;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('loading-screen').style.display = 'flex';
+                initAssets();
+            } else {
+                err.innerText = "Incorrect Username or Password!";
+                err.style.display = "block";
+                btn.innerText = "LOGIN";
+            }
+        } catch (e) {
+            err.innerText = "Error connecting to Database. Check Apps Script!";
+            err.style.display = "block";
+            btn.innerText = "LOGIN";
+        }
+    }
+
     async function initAssets() {
         try {
-            const res = await fetch(`${API_URL}?action=getGameData`);
-            const data = await res.json();
-            if (data.success) gameData = data.islands;
+            // Fetch Game Questions
+            const resData = await fetch(`${API_URL}?action=getGameData`);
+            const d = await resData.json();
+            if (d.success) gameData = d.islands;
+            
+            // Fetch Leaderboard
+            const resLb = await fetch(`${API_URL}?action=getLeaderboard`);
+            leaderboardData = await resLb.json();
 
             const [carG, t1, t2, f1, bullG, fenceG, islandG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
@@ -222,10 +282,8 @@
             if(bullG) { 
                 [160, -160].forEach(x => { 
                     const b = THREE.SkeletonUtils.clone(bullG.scene); 
-                    b.position.set(x, 0, -60); 
-                    b.scale.set(2.5, 2.5, 2.5); 
-                    gameGroup.add(b); 
-                    bullsArray.push({mesh:b, radius:8}); 
+                    b.position.set(x, 0, -60); b.scale.set(2.5, 2.5, 2.5); 
+                    gameGroup.add(b); bullsArray.push({mesh:b, radius:8}); 
                     if(bullG.animations.length){ 
                         const m = new THREE.AnimationMixer(b); 
                         m.clipAction(bullG.animations[0]).play(); mixers.push(m); 
@@ -259,7 +317,6 @@
 
                     pos.x = Math.cos(finalAngle) * radius;
                     pos.z = Math.sin(finalAngle) * radius;
-                    
                     islandMapPositions.push(pos);
 
                     const iMesh = THREE.SkeletonUtils.clone(islandG.scene);
@@ -270,13 +327,18 @@
             }
 
             gameGroup.visible = false;
-            
-            document.getElementById('load-text').innerText = "World Ready!";
+            document.getElementById('load-text').innerText = "Welcome, " + currentUser.username + "!";
             document.getElementById('start-btn').style.display = 'block';
 
         } catch (error) {
-            document.getElementById('load-text').innerHTML = "Error connecting.";
+            document.getElementById('load-text').innerHTML = "Error connecting to Server.";
         }
+    }
+
+    function formatTime(seconds) {
+        let m = Math.floor(seconds / 60);
+        let s = seconds % 60;
+        return m + "m " + s + "s";
     }
 
     function spawnDeco(m, s, r, arr) {
@@ -301,31 +363,18 @@
         for (let i = 0; i < segments; i++) {
             const rBottom = bottomRadius - ((bottomRadius - topRadius) * (i / segments));
             const rTop = bottomRadius - ((bottomRadius - topRadius) * ((i + 1) / segments));
-
             const geo = new THREE.CylinderGeometry(rTop, rBottom, segmentHeight, 4); 
             const mesh = new THREE.Mesh(geo, i % 2 === 0 ? towerMatRed : towerMatWhite);
-            
             const edges = new THREE.EdgesGeometry(geo);
             const line = new THREE.LineSegments(edges, towerEdgeMat);
             mesh.add(line);
-
             mesh.position.y = (i * segmentHeight) + (segmentHeight / 2) - (height / 2);
             mesh.rotation.y = Math.PI / 4; 
             towerGroup.add(mesh);
         }
-
         const dishGeo = new THREE.CylinderGeometry(height * 0.04, height * 0.02, height * 0.02, 8);
-        const dish1 = new THREE.Mesh(dishGeo, dishMat);
-        dish1.rotation.x = Math.PI / 2;
-        dish1.position.set(height * 0.03, (height / 2) - (height * 0.15), height * 0.03);
-        towerGroup.add(dish1);
-
-        const dish2 = new THREE.Mesh(dishGeo, dishMat);
-        dish2.rotation.x = Math.PI / 2;
-        dish2.rotation.z = Math.PI / 2;
-        dish2.position.set(-height * 0.03, (height / 2) - (height * 0.25), -height * 0.03);
-        towerGroup.add(dish2);
-
+        const dish1 = new THREE.Mesh(dishGeo, dishMat); dish1.rotation.x = Math.PI / 2; dish1.position.set(height * 0.03, (height / 2) - (height * 0.15), height * 0.03); towerGroup.add(dish1);
+        const dish2 = new THREE.Mesh(dishGeo, dishMat); dish2.rotation.x = Math.PI / 2; dish2.rotation.z = Math.PI / 2; dish2.position.set(-height * 0.03, (height / 2) - (height * 0.25), -height * 0.03); towerGroup.add(dish2);
         return towerGroup;
     }
 
@@ -339,6 +388,7 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
+            // MAIN ISLAND TOWER 
             const tower1 = createAntennaTower(100);
             tower1.position.set(pos.x, 50, pos.z); 
             
@@ -347,16 +397,9 @@
             const ctx1 = cvs1.getContext('2d');
             
             ctx1.fillStyle = state === 2 ? "#f1c40f" : (state === 1 ? "#3498db" : "#95a5a6"); 
-            ctx1.beginPath();
-            ctx1.arc(64, 64, 50, 0, Math.PI * 2);
-            ctx1.fill();
-            ctx1.lineWidth = 6;
-            ctx1.strokeStyle = "white";
-            ctx1.stroke();
-            
-            ctx1.fillStyle = "white";
-            ctx1.textAlign = "center";
-            ctx1.textBaseline = "middle";
+            ctx1.beginPath(); ctx1.arc(64, 64, 50, 0, Math.PI * 2); ctx1.fill();
+            ctx1.lineWidth = 6; ctx1.strokeStyle = "white"; ctx1.stroke();
+            ctx1.fillStyle = "white"; ctx1.textAlign = "center"; ctx1.textBaseline = "middle";
             
             if (state === 2) {
                 ctx1.font = "bold 50px Arial"; ctx1.fillText("🏆", 64, 64);
@@ -368,58 +411,55 @@
             }
             
             const tex1 = new THREE.CanvasTexture(cvs1);
-            const mat1 = new THREE.SpriteMaterial({map: tex1, depthTest: false});
-            const sprite1 = new THREE.Sprite(mat1);
+            const sprite1 = new THREE.Sprite(new THREE.SpriteMaterial({map: tex1, depthTest: false}));
             sprite1.scale.set(100, 100, 1); 
             sprite1.position.set(pos.x, 120, pos.z);
             sprite1.userData = { type: 'driving', islandIndex: i }; 
             
-            mapPinsGroup.add(tower1); 
-            mapPinsGroup.add(sprite1);
-            flagHitboxes.push(sprite1);
+            mapPinsGroup.add(tower1); mapPinsGroup.add(sprite1); flagHitboxes.push(sprite1);
+
+            // LEADERBOARD SPRITE
+            if (leaderboardData[i]) {
+                const lb = leaderboardData[i];
+                const cvsLb = document.createElement('canvas');
+                cvsLb.width = 512; cvsLb.height = 256;
+                const ctxLb = cvsLb.getContext('2d');
+                
+                ctxLb.fillStyle = "rgba(0,0,0,0.8)";
+                ctxLb.roundRect(0, 0, 512, 256, 30); ctxLb.fill();
+                ctxLb.lineWidth = 10; ctxLb.strokeStyle = "#f1c40f"; ctxLb.stroke();
+                
+                ctxLb.fillStyle = "white"; ctxLb.textAlign = "center";
+                ctxLb.font = "bold 40px Arial"; ctxLb.fillText("🥇 1st Place", 256, 60);
+                ctxLb.fillStyle = "#2ecc71"; ctxLb.font = "bold 50px Arial"; ctxLb.fillText(lb.user, 256, 120);
+                ctxLb.fillStyle = "white"; ctxLb.font = "30px Arial"; ctxLb.fillText("(" + lb.school + ")", 256, 170);
+                ctxLb.fillStyle = "#f1c40f"; ctxLb.font = "bold 45px Arial"; ctxLb.fillText(formatTime(lb.time), 256, 230);
+                
+                const texLb = new THREE.CanvasTexture(cvsLb);
+                const spriteLb = new THREE.Sprite(new THREE.SpriteMaterial({map: texLb, depthTest: false}));
+                spriteLb.scale.set(180, 90, 1); 
+                spriteLb.position.set(pos.x, 200, pos.z); // Hover high above
+                mapPinsGroup.add(spriteLb);
+            }
 
             if (state < 2) {
-                const tower2 = createAntennaTower(60);
-                tower2.position.set(pos.x + 50, 30, pos.z + 50); 
-                
-                const cvs2 = document.createElement('canvas');
-                cvs2.width = 128; cvs2.height = 128;
-                const ctx2 = cvs2.getContext('2d');
+                const tower2 = createAntennaTower(60); tower2.position.set(pos.x + 50, 30, pos.z + 50); 
+                const cvs2 = document.createElement('canvas'); cvs2.width = 128; cvs2.height = 128; const ctx2 = cvs2.getContext('2d');
                 ctx2.fillStyle = "#e74c3c"; ctx2.beginPath(); ctx2.arc(64, 64, 45, 0, Math.PI * 2); ctx2.fill();
                 ctx2.lineWidth = 4; ctx2.strokeStyle = "white"; ctx2.stroke();
-                ctx2.fillStyle = "white"; ctx2.font = "bold 45px Arial"; ctx2.textAlign = "center"; ctx2.textBaseline = "middle";
-                ctx2.fillText("📝", 64, 64); 
-                
-                const tex2 = new THREE.CanvasTexture(cvs2);
-                const sprite2 = new THREE.Sprite(new THREE.SpriteMaterial({map: tex2, depthTest: false}));
-                sprite2.scale.set(70, 70, 1); 
-                sprite2.position.set(pos.x + 50, 80, pos.z + 50);
-                sprite2.userData = { type: 'worksheet', islandIndex: i }; 
-                
-                mapPinsGroup.add(tower2); 
-                mapPinsGroup.add(sprite2); 
-                flagHitboxes.push(sprite2);
+                ctx2.fillStyle = "white"; ctx2.font = "bold 45px Arial"; ctx2.textAlign = "center"; ctx2.textBaseline = "middle"; ctx2.fillText("📝", 64, 64); 
+                const tex2 = new THREE.CanvasTexture(cvs2); const sprite2 = new THREE.Sprite(new THREE.SpriteMaterial({map: tex2, depthTest: false}));
+                sprite2.scale.set(70, 70, 1); sprite2.position.set(pos.x + 50, 80, pos.z + 50); sprite2.userData = { type: 'worksheet', islandIndex: i }; 
+                mapPinsGroup.add(tower2); mapPinsGroup.add(sprite2); flagHitboxes.push(sprite2);
 
-                const tower3 = createAntennaTower(60);
-                tower3.position.set(pos.x - 50, 30, pos.z + 50); 
-                
-                const cvs3 = document.createElement('canvas');
-                cvs3.width = 128; cvs3.height = 128;
-                const ctx3 = cvs3.getContext('2d');
+                const tower3 = createAntennaTower(60); tower3.position.set(pos.x - 50, 30, pos.z + 50); 
+                const cvs3 = document.createElement('canvas'); cvs3.width = 128; cvs3.height = 128; const ctx3 = cvs3.getContext('2d');
                 ctx3.fillStyle = "#3498db"; ctx3.beginPath(); ctx3.arc(64, 64, 45, 0, Math.PI * 2); ctx3.fill();
                 ctx3.lineWidth = 4; ctx3.strokeStyle = "white"; ctx3.stroke();
-                ctx3.fillStyle = "white"; ctx3.font = "bold 45px Arial"; ctx3.textAlign = "center"; ctx3.textBaseline = "middle";
-                ctx3.fillText("📖", 64, 64); 
-                
-                const tex3 = new THREE.CanvasTexture(cvs3);
-                const sprite3 = new THREE.Sprite(new THREE.SpriteMaterial({map: tex3, depthTest: false}));
-                sprite3.scale.set(70, 70, 1); 
-                sprite3.position.set(pos.x - 50, 80, pos.z + 50);
-                sprite3.userData = { type: 'booklet', islandIndex: i }; 
-                
-                mapPinsGroup.add(tower3); 
-                mapPinsGroup.add(sprite3); 
-                flagHitboxes.push(sprite3);
+                ctx3.fillStyle = "white"; ctx3.font = "bold 45px Arial"; ctx3.textAlign = "center"; ctx3.textBaseline = "middle"; ctx3.fillText("📖", 64, 64); 
+                const tex3 = new THREE.CanvasTexture(cvs3); const sprite3 = new THREE.Sprite(new THREE.SpriteMaterial({map: tex3, depthTest: false}));
+                sprite3.scale.set(70, 70, 1); sprite3.position.set(pos.x - 50, 80, pos.z + 50); sprite3.userData = { type: 'booklet', islandIndex: i }; 
+                mapPinsGroup.add(tower3); mapPinsGroup.add(sprite3); flagHitboxes.push(sprite3);
             }
         }
     }
@@ -427,11 +467,11 @@
     function returnToMap() {
         if (isPaused) {
             isPaused = false;
-            const btn = document.getElementById('pause-btn');
-            btn.innerText = "⏸ PAUSE";
-            btn.style.background = "#e74c3c"; 
-            btn.style.borderColor = "#c0392b";
+            document.getElementById('pause-btn').innerText = "⏸ PAUSE";
+            document.getElementById('pause-btn').style.background = "#e74c3c"; 
         }
+        clearInterval(timerInterval);
+        document.getElementById('timer-ui').style.display = 'none';
         openMap(currentIsland); 
     }
 
@@ -456,9 +496,8 @@
 
         generateMapPins(); 
         
-        if (keepCamera) {
-            // Keep existing camera config
-        } else if (focusIslandIndex !== -1 && islandMapPositions[focusIslandIndex]) {
+        if (keepCamera) { } 
+        else if (focusIslandIndex !== -1 && islandMapPositions[focusIslandIndex]) {
             let pos = islandMapPositions[focusIslandIndex];
             camera.position.set(pos.x, 1500, pos.z + 1000);
             controls.target.set(pos.x, 0, pos.z);
@@ -472,7 +511,6 @@
         controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
         controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
         
-        // FIX: Tighter max angle to prevent looking under the horizon
         controls.maxPolarAngle = Math.PI / 2.4; 
         controls.minDistance = 200;
         controls.maxDistance = 6000; 
@@ -543,93 +581,80 @@
         
         let contentHTML = "";
         gameData[index].forEach((q, i) => {
-            contentHTML += `
-                <div class="qa-block">
-                    <div class="q-text">ސުވާލު ${i+1}: ${q.question}</div>
-                    <div class="a-text">ޖަވާބު: ${q.correctAnswer}</div>
-                </div>
-            `;
+            contentHTML += `<div class="qa-block"><div class="q-text">ސުވާލު ${i+1}: ${q.question}</div><div class="a-text">ޖަވާބު: ${q.correctAnswer}</div></div>`;
         });
         document.getElementById('bk-content').innerHTML = contentHTML;
     }
 
-    function closeBooklet() {
-        openMap(-1, true);
-    }
+    function closeBooklet() { openMap(-1, true); }
 
-    let wsCurrentIsland = 0;
-    let wsCurrentQuestion = 0;
-    let wsRemainingAnswers = [];
-    let wsLives = 3;
+    let wsCurrentIsland = 0; let wsCurrentQuestion = 0; let wsRemainingAnswers = []; let wsLives = 3;
 
     function startWorksheet(index) {
-        appState = 'WORKSHEET';
-        wsCurrentIsland = index;
-        wsCurrentQuestion = 0;
-        wsLives = 3; 
-        
+        appState = 'WORKSHEET'; wsCurrentIsland = index; wsCurrentQuestion = 0; wsLives = 3; 
         document.getElementById('map-overlay').style.display = 'none';
         document.getElementById('worksheet-screen').style.display = 'flex';
-        
         let islandQ = gameData[wsCurrentIsland];
         wsRemainingAnswers = islandQ.map(q => q.correctAnswer);
         wsRemainingAnswers.sort(() => Math.random() - 0.5); 
-        
         document.getElementById('ws-title').innerText = "Island " + (index + 1);
-        updateLivesUI();
-        renderWorksheet();
+        updateLivesUI(); renderWorksheet();
     }
 
-    function updateLivesUI() {
-        document.getElementById('ws-lives').innerText = '❤️'.repeat(wsLives);
-    }
+    function updateLivesUI() { document.getElementById('ws-lives').innerText = '❤️'.repeat(wsLives); }
 
     function renderWorksheet() {
         let islandQ = gameData[wsCurrentIsland];
         document.getElementById('ws-question-box').innerText = islandQ[wsCurrentQuestion].question;
-        
-        const grid = document.getElementById('ws-answers-grid');
-        grid.innerHTML = ''; 
-        
+        const grid = document.getElementById('ws-answers-grid'); grid.innerHTML = ''; 
         wsRemainingAnswers.forEach(ans => {
-            let btn = document.createElement('button');
-            btn.className = 'ws-answer-btn';
-            btn.innerText = ans;
-            btn.onclick = function() { checkWorksheetAnswer(this, ans); };
-            grid.appendChild(btn);
+            let btn = document.createElement('button'); btn.className = 'ws-answer-btn'; btn.innerText = ans;
+            btn.onclick = function() { checkWorksheetAnswer(this, ans); }; grid.appendChild(btn);
         });
     }
 
     function checkWorksheetAnswer(btnElement, selectedAnswer) {
         let correctAns = gameData[wsCurrentIsland][wsCurrentQuestion].correctAnswer;
-        
         if (selectedAnswer === correctAns) {
-            wsRemainingAnswers = wsRemainingAnswers.filter(a => a !== correctAns);
-            wsCurrentQuestion++;
-            
+            wsRemainingAnswers = wsRemainingAnswers.filter(a => a !== correctAns); wsCurrentQuestion++;
             if (wsCurrentQuestion >= 10) {
                 if (islandStates[wsCurrentIsland] < 1) islandStates[wsCurrentIsland] = 1; 
-                showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!");
-                openMap(-1, true);
-            } else {
-                renderWorksheet(); 
-            }
+                showToast("🎉 Island Unlocked! Double-tap the Flag to Drive!"); openMap(-1, true);
+            } else { renderWorksheet(); }
         } else {
-            wsLives--;
-            updateLivesUI();
-            
-            btnElement.style.background = "#e74c3c";
-            setTimeout(() => { btnElement.style.background = "#2ecc71"; }, 800);
-
+            wsLives--; updateLivesUI();
+            btnElement.style.background = "#e74c3c"; setTimeout(() => { btnElement.style.background = "#2ecc71"; }, 800);
             if (wsLives <= 0) {
-                showToast("💀 Game Over! Try again.");
-                setTimeout(() => { startWorksheet(wsCurrentIsland); }, 1500);
+                showToast("💀 Game Over! Try again."); setTimeout(() => { startWorksheet(wsCurrentIsland); }, 1500);
             }
         }
     }
 
-    function closeWorksheet() {
-        openMap(-1, true);
+    function closeWorksheet() { openMap(-1, true); }
+
+    // --- UPDATED: DRIVING GAME TIMER ---
+    function updateTimer() {
+        if(isPaused || appState !== 'PLAYING') return;
+        let elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+        let m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        let s = String(elapsed % 60).padStart(2, '0');
+        document.getElementById('timer-ui').innerText = `⏱️ ${m}:${s}`;
+    }
+
+    async function finishIsland(timeTaken) {
+        islandStates[currentIsland] = 2; 
+        document.getElementById('timer-ui').style.display = 'none';
+        showToast("🏆 You Earned a Trophy! Submitting time...");
+        
+        // Save to Database asynchronously 
+        try {
+            await fetch(`${API_URL}?action=submitTime&island=${currentIsland}&user=${encodeURIComponent(currentUser.username)}&school=${encodeURIComponent(currentUser.school)}&time=${timeTaken}`);
+            // Re-fetch Leaderboard
+            const resLb = await fetch(`${API_URL}?action=getLeaderboard`);
+            leaderboardData = await resLb.json();
+        } catch(e) { console.log("Time submission error."); }
+        
+        setTimeout(() => { openMap(currentIsland); }, 2000); 
     }
 
     function startDrivingGame(index) {
@@ -646,6 +671,11 @@
         document.getElementById('speed-container').style.display = 'flex'; 
         document.getElementById('tap-indicator').style.display = 'block'; 
         
+        // Start Timer
+        document.getElementById('timer-ui').style.display = 'block';
+        gameStartTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+
         engineAudio.volume = 1.0;
         bullAudio.volume = 0.0;
         engineAudio.play().catch(e => console.log(e));
@@ -663,331 +693,158 @@
         isPaused = !isPaused;
         const btn = document.getElementById('pause-btn');
         if (isPaused) {
-            btn.innerText = "▶ RESUME";
-            btn.style.background = "#27ae60"; 
-            btn.style.borderColor = "#2ecc71";
-            
-            engineAudio.pause();
-            bullAudio.pause();
-
-            controls.enabled = true;
-            controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
-            controls.minDistance = 2; 
-            controls.maxDistance = 200; 
-            controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); 
-            controls.update(); 
-            
+            btn.innerText = "▶ RESUME"; btn.style.background = "#27ae60"; btn.style.borderColor = "#2ecc71";
+            engineAudio.pause(); bullAudio.pause();
+            controls.enabled = true; controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+            controls.minDistance = 2; controls.maxDistance = 200; 
+            controls.target.set(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z); controls.update(); 
             document.getElementById('tap-indicator').style.display = 'none';
         } else {
-            btn.innerText = "⏸ PAUSE";
-            btn.style.background = "#e74c3c"; 
-            btn.style.borderColor = "#c0392b";
-            
-            engineAudio.play();
-            bullAudio.play();
-
+            btn.innerText = "⏸ PAUSE"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b";
+            engineAudio.play(); bullAudio.play();
             controls.enabled = false;
             if(!isDriving) document.getElementById('tap-indicator').style.display = 'block';
         }
     }
 
-    function toggleCamera() {
-        cameraMode = (cameraMode + 1) % 3;
-        const btn = document.getElementById('cam-btn');
-        if (cameraMode === 0) btn.innerHTML = "🎥 ACTION";
-        if (cameraMode === 1) btn.innerHTML = "🚁 DRONE";
-        if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW";
-    }
+    function toggleCamera() { cameraMode = (cameraMode + 1) % 3; const btn = document.getElementById('cam-btn'); if (cameraMode === 0) btn.innerHTML = "🎥 ACTION"; if (cameraMode === 1) btn.innerHTML = "🚁 DRONE"; if (cameraMode === 2) btn.innerHTML = "🔄 360 VIEW"; }
 
     function createSignText(text, color) {
         const c = document.createElement('canvas'); const ctx = c.getContext('2d');
         const canvasWidth = 1024; const fontSize = 64;
         ctx.font = `bold ${fontSize}px 'Faruma', 'MV Boli', 'Noto Sans Thaana'`;
-        
         const words = text.split(' '); let lines = []; let currentLine = words[0] || "";
         for (let i = 1; i < words.length; i++) {
             const testLine = currentLine + " " + words[i];
-            if (ctx.measureText(testLine).width < canvasWidth - 120) { currentLine = testLine; } 
-            else { lines.push(currentLine); currentLine = words[i]; }  
-        }
-        lines.push(currentLine);
-        
-        const canvasHeight = Math.max(512, (lines.length * (fontSize + 30)) + 120);
-        c.width = canvasWidth; c.height = canvasHeight;
-        
-        ctx.fillStyle = color; ctx.fillRect(0, 0, c.width, c.height);
-        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.direction = "rtl"; 
-        ctx.font = `bold ${fontSize}px 'Faruma', 'MV Boli', 'Noto Sans Thaana'`;
-        
+            if (ctx.measureText(testLine).width < canvasWidth - 120) { currentLine = testLine; } else { lines.push(currentLine); currentLine = words[i]; }  
+        } lines.push(currentLine);
+        const canvasHeight = Math.max(512, (lines.length * (fontSize + 30)) + 120); c.width = canvasWidth; c.height = canvasHeight;
+        ctx.fillStyle = color; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.direction = "rtl"; ctx.font = `bold ${fontSize}px 'Faruma', 'MV Boli', 'Noto Sans Thaana'`;
         const startY = (c.height / 2) - (((lines.length - 1) * (fontSize + 30)) / 2);
         lines.forEach((line, index) => { ctx.fillText(line, c.width / 2, startY + (index * (fontSize + 30))); });
-        
-        const tex = new THREE.CanvasTexture(c); 
-        return { tex: tex, color: color, w: 24, h: (canvasHeight / canvasWidth) * 24 };
+        return { tex: new THREE.CanvasTexture(c), color: color, w: 24, h: (canvasHeight / canvasWidth) * 24 };
     }
 
     function getSafeBoardPosition() {
-        let pos = {x: 0, z: 0};
-        let safe = false;
-        
+        let pos = {x: 0, z: 0}; let safe = false;
         while (!safe) { 
-            pos.x = (Math.random() - 0.5) * 220; 
-            pos.z = (Math.random() - 0.5) * 220;
+            pos.x = (Math.random() - 0.5) * 220; pos.z = (Math.random() - 0.5) * 220;
             if (Math.abs(pos.x) < 40 && Math.abs(pos.z) < 40) continue; 
-            
             safe = true;
-            for (let b of signboardsArray) {
-                if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 40) {
-                    safe = false; break;
-                }
-            }
-        }
-        return pos;
+            for (let b of signboardsArray) { if (Math.hypot(pos.x - b.mesh.position.x, pos.z - b.mesh.position.z) < 40) { safe = false; break; } }
+        } return pos;
     }
 
     function loadIslandBoards() {
-        signboardsArray.forEach(b => gameGroup.remove(b.mesh));
-        signboardsArray.length = 0;
-
-        let islandQuestions = gameData[currentIsland];
-        let totalQuestions = islandQuestions.length;
-        
-        let answerSet = [];
-        for(let i = 0; i < totalQuestions; i++) {
-            answerSet.push({ text: islandQuestions[i].correctAnswer, qIndex: i });
-        }
-        answerSet.sort(() => Math.random() - 0.5);
-
+        signboardsArray.forEach(b => gameGroup.remove(b.mesh)); signboardsArray.length = 0;
+        let islandQuestions = gameData[currentIsland]; let totalQuestions = islandQuestions.length;
+        let answerSet = []; for(let i = 0; i < totalQuestions; i++) { answerSet.push({ text: islandQuestions[i].correctAnswer, qIndex: i }); } answerSet.sort(() => Math.random() - 0.5);
         for(let i = 0; i < answerSet.length && i < 10; i++) {
-            let color = signColors[i % signColors.length];
-            let pos = getSafeBoardPosition();
+            let color = signColors[i % signColors.length]; let pos = getSafeBoardPosition();
             spawnBoard(answerSet[i].text, color, answerSet[i].qIndex, pos.x, pos.z);
         }
-
-        carGroup.position.set(0,0,0);
-        carGroup.rotation.set(0,0,0);
-        isDriving = false; 
-        document.getElementById('tap-indicator').style.display = 'block'; 
-        updateQuestionUI();
+        carGroup.position.set(0,0,0); carGroup.rotation.set(0,0,0); isDriving = false; document.getElementById('tap-indicator').style.display = 'block'; updateQuestionUI();
     }
 
     function updateQuestionUI() {
         if (currentQuestion >= gameData[currentIsland].length) {
-            islandStates[currentIsland] = 2; 
-            showToast("🏆 You Earned a Trophy! Returning to Map...");
-            setTimeout(() => { openMap(currentIsland); }, 2000); 
+            // STOP TIMER AND FINISH
+            clearInterval(timerInterval);
+            let timeTaken = Math.floor((Date.now() - gameStartTime) / 1000);
+            finishIsland(timeTaken);
             return;
         }
-        
         let qData = gameData[currentIsland][currentQuestion];
-        document.getElementById('question-box').innerText = qData.question;
-        document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
+        document.getElementById('question-box').innerText = qData.question; document.getElementById('island-counter').innerText = `${currentIsland + 1} / 50`;
     }
     
     function showWrongAnswerUI() {
-        const qBox = document.getElementById('question-box');
-        qBox.innerText = "ނުބައި ޖަވާބު! (Wrong Answer!)";
-        qBox.style.background = "#e74c3c";
-        qBox.style.color = "white";
-        
-        setTimeout(() => {
-            qBox.innerText = gameData[currentIsland][currentQuestion].question;
-            qBox.style.background = "rgba(255,255,255,0.95)";
-            qBox.style.color = "black";
-        }, 1500);
+        const qBox = document.getElementById('question-box'); qBox.innerText = "ނުބައި ޖަވާބު! (Wrong Answer!)"; qBox.style.background = "#e74c3c"; qBox.style.color = "white";
+        setTimeout(() => { qBox.innerText = gameData[currentIsland][currentQuestion].question; qBox.style.background = "rgba(255,255,255,0.95)"; qBox.style.color = "black"; }, 1500);
     }
 
     function spawnBoard(text, color, qIndex, xPos, zPos) {
-        const signData = createSignText(text, color);
-        const g = new THREE.Group();
-        
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); 
-        p.position.y = 5; 
-        g.add(p);
-        
-        const boxMat = new THREE.MeshStandardMaterial({color: color});
-        const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 1.0), boxMat); 
-        b.position.set(0, 10 + (signData.h/2 - 5), 0); 
-        g.add(b);
-
+        const signData = createSignText(text, color); const g = new THREE.Group();
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 10), new THREE.MeshStandardMaterial({color: 0x333333})); p.position.y = 5; g.add(p);
+        const boxMat = new THREE.MeshStandardMaterial({color: color}); const b = new THREE.Mesh(new THREE.BoxGeometry(signData.w, signData.h, 1.0), boxMat); b.position.set(0, 10 + (signData.h/2 - 5), 0); g.add(b);
         const textMat = new THREE.MeshStandardMaterial({map: signData.tex});
-        const frontFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
-        frontFace.position.set(0, 10 + (signData.h/2 - 5), 0.51); 
-        g.add(frontFace);
-
-        const backFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat);
-        backFace.position.set(0, 10 + (signData.h/2 - 5), -0.51); 
-        backFace.rotation.y = Math.PI;
-        g.add(backFace);
-
-        g.position.set(xPos, 0, zPos); 
-        gameGroup.add(g);
-        signboardsArray.push({ mesh: g, qIndex: qIndex });
+        const frontFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat); frontFace.position.set(0, 10 + (signData.h/2 - 5), 0.51); g.add(frontFace);
+        const backFace = new THREE.Mesh(new THREE.PlaneGeometry(signData.w, signData.h), textMat); backFace.position.set(0, 10 + (signData.h/2 - 5), -0.51); backFace.rotation.y = Math.PI; g.add(backFace);
+        g.position.set(xPos, 0, zPos); gameGroup.add(g); signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
     function handleInteractionStart(e) {
         if(appState !== 'PLAYING') return; 
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
         if (!isPaused) {
-            isDriving = true; 
-            document.getElementById('tap-indicator').style.display = 'none'; 
-            
-            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            let screenW = window.innerWidth;
-
-            if (clientX < screenW * 0.3) {
-                activeSteering = 1; 
-            } else if (clientX > screenW * 0.7) {
-                activeSteering = -1; 
-            } else {
-                isLooking = true; 
-                lookStartX = clientX;
-                lookStartY = clientY; 
-            }
+            isDriving = true; document.getElementById('tap-indicator').style.display = 'none'; 
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY; let screenW = window.innerWidth;
+            if (clientX < screenW * 0.3) { activeSteering = 1; } else if (clientX > screenW * 0.7) { activeSteering = -1; } else { isLooking = true; lookStartX = clientX; lookStartY = clientY; }
         }
     }
     
     function handleInteractionMove(e) {
-        if(appState !== 'PLAYING') return;
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        if(appState !== 'PLAYING') return; if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
         if (!isPaused && isLooking) {
-            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            let deltaX = clientX - lookStartX;
-            let deltaY = clientY - lookStartY;
-            
-            targetCamAngleOffset = -(deltaX / window.innerWidth) * Math.PI * 1.5; 
-            targetCamPitchOffset = -(deltaY / window.innerHeight) * Math.PI; 
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            targetCamAngleOffset = -((clientX - lookStartX) / window.innerWidth) * Math.PI * 1.5; 
+            targetCamPitchOffset = -((clientY - lookStartY) / window.innerHeight) * Math.PI; 
         }
     }
 
-    function handleInteractionEnd() {
-        if(appState !== 'PLAYING') return;
-        activeSteering = 0;
-        isLooking = false;
-        targetCamAngleOffset = 0; 
-        targetCamPitchOffset = 0; 
-    }
-
-    window.addEventListener('touchstart', handleInteractionStart, {passive: false});
-    window.addEventListener('mousedown', handleInteractionStart);
-    window.addEventListener('touchmove', handleInteractionMove, {passive: false});
-    window.addEventListener('mousemove', handleInteractionMove);
-    window.addEventListener('touchend', handleInteractionEnd);
-    window.addEventListener('mouseup', handleInteractionEnd);
+    function handleInteractionEnd() { if(appState !== 'PLAYING') return; activeSteering = 0; isLooking = false; targetCamAngleOffset = 0; targetCamPitchOffset = 0; }
+    window.addEventListener('touchstart', handleInteractionStart, {passive: false}); window.addEventListener('mousedown', handleInteractionStart); window.addEventListener('touchmove', handleInteractionMove, {passive: false}); window.addEventListener('mousemove', handleInteractionMove); window.addEventListener('touchend', handleInteractionEnd); window.addEventListener('mouseup', handleInteractionEnd);
 
     function animate() {
         requestAnimationFrame(animate);
-        const delta = clock.getDelta(); 
-        mixers.forEach(m => m.update(delta)); 
+        const delta = clock.getDelta(); mixers.forEach(m => m.update(delta)); 
         
-        if (appState === 'MAP') {
-            // FIX: Lock target.y strictly to 0 to prevent camera from ever dipping below the ocean plane
-            controls.target.y = 0; 
-            controls.update(); 
-            renderer.render(scene, camera);
-            return;
-        }
+        if (appState === 'MAP') { controls.target.y = 0; controls.update(); renderer.render(scene, camera); return; }
 
         if (appState === 'PLAYING') {
             if (!isPaused) {
-                camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1;
-                camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
-                
+                camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1; camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
                 let speed = parseFloat(document.getElementById('speed-slider').value);
                 
                 if (isDriving) {
                     if(engineAudio && speed > 0) engineAudio.playbackRate = 0.5 + (speed / 1.5);
+                    if (activeSteering === 1) carGroup.rotation.y += 0.04; else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
 
-                    if (activeSteering === 1) carGroup.rotation.y += 0.04;
-                    else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
-
-                    const oldPos = carGroup.position.clone();
-                    carGroup.translateZ(-speed);
-
+                    const oldPos = carGroup.position.clone(); carGroup.translateZ(-speed);
                     for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
                     for(let b of bullsArray) if(carGroup.position.distanceTo(b.mesh.position) < b.radius) { carGroup.position.copy(oldPos); }
                     if(Math.abs(carGroup.position.x) > BOUNDARY || Math.abs(carGroup.position.z) > BOUNDARY) { carGroup.position.copy(oldPos); }
 
-                    let hitIndex = -1;
-                    let correctHit = false;
-
+                    let hitIndex = -1; let correctHit = false;
                     for (let i = 0; i < signboardsArray.length; i++) {
                         let board = signboardsArray[i];
                         if (carGroup.position.distanceTo(board.mesh.position) < 4.5) {
-                            if (board.qIndex === currentQuestion) {
-                                hitIndex = i;
-                                correctHit = true;
-                                break;
-                            } else {
-                                carGroup.translateZ(15); 
-                                isDriving = false;       
-                                document.getElementById('tap-indicator').style.display = 'block'; 
-                                showWrongAnswerUI();
-                                break;
-                            }
+                            if (board.qIndex === currentQuestion) { hitIndex = i; correctHit = true; break; } 
+                            else { carGroup.translateZ(15); isDriving = false; document.getElementById('tap-indicator').style.display = 'block'; showWrongAnswerUI(); break; }
                         }
                     }
 
-                    if (correctHit) {
-                        gameGroup.remove(signboardsArray[hitIndex].mesh);
-                        signboardsArray.splice(hitIndex, 1);
-                        currentQuestion++;
-                        updateQuestionUI();
-                    }
+                    if (correctHit) { gameGroup.remove(signboardsArray[hitIndex].mesh); signboardsArray.splice(hitIndex, 1); currentQuestion++; updateQuestionUI(); }
+                } else { if(engineAudio) engineAudio.playbackRate = 0.5; }
 
-                } else {
-                    if(engineAudio) engineAudio.playbackRate = 0.5; 
-                }
-
-                let mD = 1000; 
-                bullsArray.forEach(b => { 
-                    let d = carGroup.position.distanceTo(b.mesh.position); 
-                    if(d < mD) mD = d; 
-                }); 
-                bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
+                let mD = 1000; bullsArray.forEach(b => { let d = carGroup.position.distanceTo(b.mesh.position); if(d < mD) mD = d; }); bullAudio.volume = Math.max(0, 1 - (mD / 120)); 
 
                 const cy = carGroup.rotation.y + camAngleOffset; 
-                
                 if (cameraMode === 0) {
                     const mPitch = 0.3; 
-                    camera.position.lerp(new THREE.Vector3(
-                        carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), 
-                        carGroup.position.y + 22 * Math.sin(mPitch) + 4, 
-                        carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)
-                    ), 0.1);
-                    
-                    let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); 
-                    camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), lookY, carGroup.position.z - 20 * Math.cos(cy));
-                    
+                    camera.position.lerp(new THREE.Vector3(carGroup.position.x + 25 * Math.sin(cy) * Math.cos(mPitch), carGroup.position.y + 22 * Math.sin(mPitch) + 4, carGroup.position.z + 25 * Math.cos(cy) * Math.cos(mPitch)), 0.1);
+                    let lookY = carGroup.position.y + 1 + (camPitchOffset * 40); camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), lookY, carGroup.position.z - 20 * Math.cos(cy));
                 } else if (cameraMode === 1) {
-                    camera.position.lerp(new THREE.Vector3(
-                        carGroup.position.x + 40 * Math.sin(cy), 
-                        carGroup.position.y + 50, 
-                        carGroup.position.z + 40 * Math.cos(cy)
-                    ), 0.1);
+                    camera.position.lerp(new THREE.Vector3(carGroup.position.x + 40 * Math.sin(cy), carGroup.position.y + 50, carGroup.position.z + 40 * Math.cos(cy)), 0.1);
                     camera.lookAt(carGroup.position.x - 20 * Math.sin(cy), carGroup.position.y, carGroup.position.z - 20 * Math.cos(cy));
-                    
                 } else if (cameraMode === 2) {
-                    const time = Date.now() * 0.0005; 
-                    camera.position.lerp(new THREE.Vector3(
-                        carGroup.position.x + 40 * Math.sin(time), 
-                        carGroup.position.y + 20, 
-                        carGroup.position.z + 40 * Math.cos(time)
-                    ), 0.1);
+                    const time = Date.now() * 0.0005; camera.position.lerp(new THREE.Vector3(carGroup.position.x + 40 * Math.sin(time), carGroup.position.y + 20, carGroup.position.z + 40 * Math.cos(time)), 0.1);
                     camera.lookAt(carGroup.position.x, carGroup.position.y + 2, carGroup.position.z);
                 }
-            } else {
-                controls.update(); 
-            }
-
+            } else { controls.update(); }
             renderer.render(scene, camera);
         }
     }
-
-    initAssets();
   </script>
 </body>
 </html>
