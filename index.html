@@ -272,14 +272,16 @@
             
             leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
-            const [carG, t1, t2, f1, bullG, fenceG, islandG] = await Promise.all([
+            // LOAD NEW BOAT MODEL ALONG WITH OTHERS
+            const [carG, t1, t2, f1, bullG, fenceG, islandG, boatG] = await Promise.all([
                 loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Bull.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Fence.glb'),
-                loadModel('https://hussainsaamy.github.io/game-assets/Island.glb')
+                loadModel('https://hussainsaamy.github.io/game-assets/Island.glb'),
+                loadModel('boat.glb') // Custom User Boat
             ]);
 
             const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
@@ -344,31 +346,23 @@
                 }
             }
 
-            // --- NEW: Central Wooden Boat & Logo ---
+            // --- CUSTOM WOODEN BOAT & LOGO FROM GLB ---
             const boatGroup = new THREE.Group();
             boatGroup.position.set(0, 0, 0);
 
-            const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 1.0});
-            const lightWoodMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b, roughness: 1.0});
-
-            // Hull 
-            const hullGeo = new THREE.BoxGeometry(1200, 120, 350);
-            const hull = new THREE.Mesh(hullGeo, woodMat);
-            hull.position.y = 60;
-            boatGroup.add(hull);
-
-            // Cabin
-            const cabinGeo = new THREE.BoxGeometry(500, 150, 250);
-            const cabin = new THREE.Mesh(cabinGeo, lightWoodMat);
-            cabin.position.set(-150, 195, 0);
-            boatGroup.add(cabin);
+            if (boatG) {
+                const customBoat = THREE.SkeletonUtils.clone(boatG.scene);
+                // CHANGE THESE NUMBERS IF YOUR BOAT IS TOO BIG OR TOO SMALL
+                customBoat.scale.set(50, 50, 50); 
+                boatGroup.add(customBoat);
+            }
 
             // User Logo
             const logoTex = new THREE.TextureLoader().load('logo.png');
             const logoMat = new THREE.SpriteMaterial({map: logoTex, color: 0xffffff});
             const logoSprite = new THREE.Sprite(logoMat);
             logoSprite.scale.set(1200, 450, 1); 
-            logoSprite.position.set(0, 500, 0);
+            logoSprite.position.set(0, 500, 0); 
             boatGroup.add(logoSprite);
 
             // Custom animation logic directly inside a mixer object
