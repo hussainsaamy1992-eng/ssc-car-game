@@ -137,9 +137,10 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzz6XNfN4vF8r4w-5gY9bQ7L93eL25XnK5j_v7bWb45v2mG5J2w9F2oFzX0Q0mJ_Y_5/exec"; 
+    // Successfully updated with your correct API URL!
+    const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
-    // NEW: Smart Fetch function to auto-retry if Google Servers drop connection
+    // Smart Fetch function to auto-retry if Google Servers drop connection
     async function safeFetch(url, retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
@@ -228,7 +229,6 @@
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
     async function attemptLogin() {
-        // NEW: .trim() removes invisible spaces from the keyboard!
         const u = document.getElementById('username').value.trim();
         const p = document.getElementById('password').value.trim();
         const btn = document.getElementById('login-btn');
@@ -237,9 +237,8 @@
         if(!u || !p) return;
         btn.innerText = "Connecting to Server..."; 
         err.style.display = "none";
-        
+
         try {
-            // NEW: Using safeFetch handles random server errors gracefully
             const data = await safeFetch(`${API_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`);
             
             if(data && data.success) {
@@ -261,7 +260,6 @@
 
     async function initAssets() {
         try {
-            // NEW: Using safeFetch handles random server errors gracefully
             const d = await safeFetch(`${API_URL}?action=getGameData`);
             if (d && d.success) gameData = d.islands;
             
@@ -401,6 +399,7 @@
             let state = islandStates[i]; 
             let pos = islandMapPositions[i];
             
+            // MAIN ISLAND TOWER 
             const tower1 = createAntennaTower(100);
             tower1.position.set(pos.x, 50, pos.z); 
             
@@ -430,6 +429,7 @@
             
             mapPinsGroup.add(tower1); mapPinsGroup.add(sprite1); flagHitboxes.push(sprite1);
 
+            // LEADERBOARD SPRITE
             if (leaderboardData[i]) {
                 const lb = leaderboardData[i];
                 const cvsLb = document.createElement('canvas');
