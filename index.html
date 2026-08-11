@@ -345,9 +345,9 @@
             
             leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
 
-            // Removed the Bull model from Promise.all
+            // LOAD NEW CAR MODEL HERE
             const [carG, t1, t2, f1, fenceG, islandG, boatG] = await Promise.all([
-                loadModel('https://hussainsaamy.github.io/game-assets/Sports%20Car.glb'),
+                loadModel('newcar.glb'), 
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Flowers.glb'),
@@ -363,7 +363,10 @@
 
             if(carG) {
                 const myCar = carG.scene;
-                myCar.scale.set(4, 4, 4); myCar.rotation.y = Math.PI;
+                // IF YOUR NEW CAR IS TOO BIG OR SMALL, CHANGE THESE NUMBERS
+                myCar.scale.set(4, 4, 4); 
+                // IF YOUR NEW CAR DRIVES BACKWARDS, CHANGE Math.PI to 0
+                myCar.rotation.y = Math.PI; 
                 carGroup.add(myCar);
             }
 
