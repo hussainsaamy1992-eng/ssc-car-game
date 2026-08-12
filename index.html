@@ -91,7 +91,7 @@
   </div>
 
   <div id="loading-screen">
-    <span id="load-text" style="color: #4CAF50; font-size: 30px;">Loading Assets...</span>
+    <span id="load-text" style="color: #4CAF50; font-size: 30px;">"أَسْتَغْفِرُ الله" ލޯޑް ވަންދެން ކިޔަމުން ގެންދޭ</span>
     <button id="start-btn" onclick="openMap()">OPEN MAP</button>
   </div>
 
@@ -143,7 +143,7 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzP6iKUGyhssc7to9sQ6iE0tinNjbmNljgNUYabxFmj5q_K5uDBKvY0TiPM6mDTykpJ/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbydQNgQncy4isjzbMa-DlaaDAbt3TPFv39yYG0nA7p6oDn1a8DFXrSNRlDfAFd4FSUu/exec"; 
 
     // --- SYNTHETIC WEB AUDIO ENGINE ---
     let audioCtx;
@@ -267,27 +267,21 @@
 
     function loadModel(url) { return new Promise(res => gltfLoader.load(url, res, undefined, () => res(null))); }
 
-    // ==========================================
-    // NEW: CLOUD SAVE SYSTEM
-    // ==========================================
     function saveProgress() {
         if (!currentUser) return;
         
-        // 1. Keep Local Backup (Safe Fallback)
         localStorage.setItem('islandStates_' + currentUser.username, JSON.stringify(islandStates));
         localStorage.setItem('readBooklets_' + currentUser.username, JSON.stringify(readBooklets));
 
-        // 2. Send to Google Sheets (Cloud Save)
         try {
             const url = `${API_URL}?action=saveProgress&user=${encodeURIComponent(currentUser.username)}&states=${encodeURIComponent(JSON.stringify(islandStates))}&booklets=${encodeURIComponent(JSON.stringify(readBooklets))}`;
-            fetch(url); // Send quietly in the background
+            fetch(url); 
         } catch(e) { console.log("Cloud save request error"); }
     }
 
     async function loadProgress() {
         if (!currentUser) return;
         
-        // 1. Try to load from Google Sheets first!
         try {
             const url = `${API_URL}?action=loadProgress&user=${encodeURIComponent(currentUser.username)}`;
             const data = await safeFetch(url);
@@ -295,13 +289,12 @@
             if (data && data.success && data.states) {
                 islandStates = JSON.parse(data.states);
                 readBooklets = JSON.parse(data.booklets);
-                return; // Cloud load successful, exit the function!
+                return; 
             }
         } catch(e) { 
             console.log("Cloud load failed, checking local backup..."); 
         }
 
-        // 2. If Cloud fails (or user has no save yet), load from phone memory
         let savedStates = localStorage.getItem('islandStates_' + currentUser.username);
         if (savedStates) islandStates = JSON.parse(savedStates);
         else islandStates = new Array(50).fill(0);
@@ -310,7 +303,6 @@
         if (savedBooklets) readBooklets = JSON.parse(savedBooklets);
         else readBooklets = new Array(50).fill(false);
     }
-    // ==========================================
 
     async function attemptLogin() {
         const u = document.getElementById('username').value.trim();
@@ -327,8 +319,6 @@
             
             if(data && data.success) {
                 currentUser = data;
-                
-                // NEW: Load Cloud Progress before starting!
                 await loadProgress();
                 
                 document.getElementById('login-screen').style.display = 'none';
