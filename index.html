@@ -36,13 +36,15 @@
     #loading-screen { position: absolute; width: 100%; height: 100%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 500; color: white; font-size: 24px; text-align: center; padding: 20px; display: none;}
     #start-btn { display: none; margin-top: 20px; padding: 15px 50px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0px 5px 15px rgba(0,255,0,0.4); }
     
-    #left-controls { position: absolute; bottom: 20px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 8px; }
+    /* LIFTED BOTTOM CONTROLS TO 45px SO BROWSER BAR DOESN'T HIDE THEM */
+    #left-controls { position: absolute; bottom: 45px; left: 20px; z-index: 9999; display: none; flex-direction: row; gap: 8px; }
     .control-btn { padding: 12px 10px; font-size: 14px; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; font-family: Arial, sans-serif; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); border: none; }
     #pause-btn { background: #e74c3c; border-bottom: 4px solid #c0392b; }
     #cam-btn { background: #3498db; border-bottom: 4px solid #2980b9; }
     #map-btn { background: #f39c12; border-bottom: 4px solid #d68910; } 
     
-    #speed-container { position: absolute; bottom: 20px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
+    /* LIFTED SPEED SLIDER TO 45px SO BROWSER BAR DOESN'T HIDE IT */
+    #speed-container { position: absolute; bottom: 45px; right: 20px; z-index: 9999; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.7); padding: 15px 10px; border-radius: 20px; border: 2px solid #4CAF50; box-shadow: 0px 4px 8px rgba(0,0,0,0.5); }
     #speed-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width: 30px; height: 160px; margin: 10px 0; cursor: pointer; accent-color: #4CAF50; }
     .speed-icon { font-size: 26px; }
     
@@ -310,11 +312,16 @@
             
             if(data && data.success) {
                 currentUser = data;
-                await loadProgress();
                 
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('loading-screen').style.display = 'flex';
-                initAssets();
+                
+                // SUPER FAST LOADING: Fetch Cloud Save AND 3D Models in parallel at the same time
+                await Promise.all([
+                    loadProgress(),
+                    initAssets()
+                ]);
+
             } else {
                 err.innerText = "Incorrect Username or Password!";
                 err.style.display = "block";
@@ -351,12 +358,10 @@
 
     async function initAssets() {
         try {
-            const d = await safeFetch(`${API_URL}?action=getGameData`);
-            if (d && d.success) gameData = d.islands;
-            
-            leaderboardData = await safeFetch(`${API_URL}?action=getLeaderboard`) || {};
-
-            const [carG, t1, t2, f1, fenceG, islandG, boatG] = await Promise.all([
+            // SUPER FAST LOADING: Download all Models and Spreadsheets at the exact same time
+            const [d, lbData, carG, t1, t2, f1, fenceG, islandG, boatG] = await Promise.all([
+                safeFetch(`${API_URL}?action=getGameData`),
+                safeFetch(`${API_URL}?action=getLeaderboard`),
                 loadModel('newcar.glb'), 
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree.glb'),
                 loadModel('https://hussainsaamy.github.io/game-assets/Tree2.glb'),
@@ -365,6 +370,9 @@
                 loadModel('https://hussainsaamy.github.io/game-assets/Island.glb'),
                 loadModel('boat.glb') 
             ]);
+
+            if (d && d.success) gameData = d.islands;
+            leaderboardData = lbData || {};
 
             const grassTex = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
             grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(50, 50);
