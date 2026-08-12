@@ -362,8 +362,8 @@
 
             if(carG) {
                 const myCar = carG.scene;
-                // FIX: Drastically scaled down the newcar model from 4 to 0.05
-                myCar.scale.set(0.05, 0.05, 0.05); 
+                // FIX: Shrunk the new car down from 0.05 to 0.03 so it is not so wide
+                myCar.scale.set(0.03, 0.03, 0.03); 
                 myCar.rotation.y = Math.PI; 
                 carGroup.add(myCar);
             }
