@@ -923,6 +923,28 @@
         g.position.set(xPos, 0, zPos); gameGroup.add(g); signboardsArray.push({ mesh: g, qIndex: qIndex });
     }
 
+    // --- KEYBOARD CONTROLS ADDED HERE ---
+    const keys = { w: false, a: false, s: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
+
+    window.addEventListener('keydown', (e) => {
+        if (appState !== 'PLAYING' || isPaused) return;
+        const k = e.key.toLowerCase();
+        if (keys.hasOwnProperty(k)) {
+            keys[k] = true;
+            document.getElementById('tap-indicator').style.display = 'none';
+            if (k === 'w' || k === 'arrowup') isDriving = true; 
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (appState !== 'PLAYING') return;
+        const k = e.key.toLowerCase();
+        if (keys.hasOwnProperty(k)) {
+            keys[k] = false;
+        }
+    });
+    // ------------------------------------
+
     function handleInteractionStart(e) {
         if(appState !== 'PLAYING') return; 
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return; 
@@ -956,10 +978,26 @@
                 camAngleOffset += (targetCamAngleOffset - camAngleOffset) * 0.1; camPitchOffset += (targetCamPitchOffset - camPitchOffset) * 0.1;
                 let speed = parseFloat(document.getElementById('speed-slider').value);
                 
-                if (audioCtx) updateEngineSound(isDriving, speed);
+                // --- KEYBOARD REVERSE / START ---
+                if (keys['s'] || keys['arrowdown']) { 
+                    speed = -0.8; // Reverse / Slow down
+                    isDriving = true; 
+                } else if (keys['w'] || keys['arrowup']) {
+                    isDriving = true;
+                }
+                // --------------------------------
+
+                if (audioCtx) updateEngineSound(isDriving, Math.abs(speed));
                 
                 if (isDriving) {
-                    if (activeSteering === 1) carGroup.rotation.y += 0.04; else if (activeSteering === -1) carGroup.rotation.y -= 0.04;
+                    
+                    // --- KEYBOARD STEERING OVERRIDE ---
+                    let currentSteer = activeSteering;
+                    if (keys['a'] || keys['arrowleft']) currentSteer = 1;
+                    if (keys['d'] || keys['arrowright']) currentSteer = -1;
+
+                    if (currentSteer === 1) carGroup.rotation.y += 0.04; else if (currentSteer === -1) carGroup.rotation.y -= 0.04;
+                    // ----------------------------------
 
                     const oldPos = carGroup.position.clone(); carGroup.translateZ(-speed);
                     for(let t of treesArray) if(carGroup.position.distanceTo(t.mesh.position) < t.radius) { carGroup.position.copy(oldPos); }
